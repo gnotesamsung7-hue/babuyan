@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Babuyan</title>
+<style>
+@font-face{font-family:"Lilita One";src:url(fonts/lilita.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Nunito";src:url(fonts/nunito-400.woff2) format("woff2");font-weight:400 500;font-display:swap}
+@font-face{font-family:"Nunito";src:url(fonts/nunito-700.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Nunito";src:url(fonts/nunito-800.woff2) format("woff2");font-weight:800;font-display:swap}
+:root{
+  --panel:#ffffff; --panel-2:#eef5e4; --ink:#3d2616; --ink-soft:#7a5a44;
+  --accent:#f6c445; --accent-ink:#3d2616; --pink:#ec8fa3; --good:#4f9a3a;
+  --line:#e2d7c8; --chip:rgba(255,255,255,.9); --bad:#c0392b;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --panel:#24180f; --panel-2:#302117; --ink:#f7eadb; --ink-soft:#c9b29c;
+    --accent:#f6c445; --accent-ink:#2a1a0e; --pink:#f0a0b2; --good:#7cc35a;
+    --line:#4a3626; --chip:rgba(36,24,15,.88); --bad:#ff7a6b; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --panel:#24180f; --panel-2:#302117; --ink:#f7eadb; --ink-soft:#c9b29c;
+  --accent:#f6c445; --accent-ink:#2a1a0e; --pink:#f0a0b2; --good:#7cc35a;
+  --line:#4a3626; --chip:rgba(36,24,15,.88); --bad:#ff7a6b; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;overflow:hidden;background:#9fd8f0;font-family:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+canvas#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.num,.display{font-family:"Lilita One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;font-weight:400;letter-spacing:.01em}
+
+#hud{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 0;display:flex;gap:10px;align-items:flex-start;justify-content:space-between;pointer-events:none;z-index:5}
+.chip{background:var(--chip);border-radius:18px;padding:8px 14px;box-shadow:0 3px 0 rgba(61,38,22,.18);pointer-events:auto;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#moneyChip{min-width:0}
+#money{font-size:clamp(26px,7vw,38px);line-height:1;color:var(--ink)}
+#rate{font-size:14px;font-weight:800;color:var(--good);margin-top:2px}
+#rate.sick{color:var(--bad)}
+#lvlChip{text-align:right;max-width:52vw}
+#stageName{font-size:15px;line-height:1.15;color:var(--ink)}
+.lvlrow{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:5px}
+#lvl{font-weight:800;font-size:13px;white-space:nowrap}
+.bar{width:92px;height:9px;border-radius:9px;background:var(--panel-2);overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:var(--pink);transition:width .25s}
+#tools{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+.iconbtn{pointer-events:auto;border:0;background:var(--chip);color:var(--ink);width:34px;height:34px;border-radius:12px;font-size:16px;cursor:pointer;box-shadow:0 2px 0 rgba(61,38,22,.18)}
+
+#events{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 92px);z-index:6;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(92vw,420px)}
+.banner{pointer-events:auto;display:flex;align-items:center;gap:10px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:7px 10px;font-weight:800;font-size:14px;box-shadow:0 3px 0 rgba(61,38,22,.15)}
+.banner.boost{border-color:var(--accent)}
+.banner.sick{border-color:var(--bad)}
+.banner button{border:0;border-radius:10px;padding:6px 10px;font:inherit;font-weight:800;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+
+#toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(46vh + 12px);z-index:7;display:flex;flex-direction:column;gap:8px;width:min(92vw,400px);pointer-events:none}
+.toast{background:var(--panel);color:var(--ink);border-radius:16px;padding:10px 14px;box-shadow:0 4px 0 rgba(61,38,22,.2);animation:tin .3s ease-out;font-size:14px;line-height:1.4}
+.toast h4{margin:0 0 2px;font-family:"Lilita One",sans-serif;font-weight:400;font-size:17px}
+.toast.lesson{border-left:6px solid var(--pink)}
+@keyframes tin{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+
+#sheet{position:fixed;left:0;right:0;bottom:0;height:46vh;background:var(--panel);border-radius:22px 22px 0 0;z-index:8;display:flex;flex-direction:column;box-shadow:0 -4px 0 rgba(61,38,22,.12);padding-bottom:env(safe-area-inset-bottom,0px);transition:transform .25s ease}
+#sheet.collapsed{transform:translateY(calc(100% - 58px - env(safe-area-inset-bottom,0px)))}
+.tabs{display:flex;gap:4px;padding:8px 8px;align-items:center;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs>*{flex:none}
+.tab{border:0;background:transparent;color:var(--ink-soft);font:inherit;font-weight:800;font-size:14px;padding:8px 9px;border-radius:12px;cursor:pointer;position:relative}
+.tab[aria-selected="true"]{background:var(--panel-2);color:var(--ink)}
+.badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--pink);color:#3d1020;font-size:12px;margin-left:4px;line-height:20px}
+.spacer{flex:1}
+#buyx{border:2px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-weight:800;border-radius:12px;padding:6px 10px;cursor:pointer;min-width:58px}
+#collapse{border:0;background:transparent;color:var(--ink-soft);font-size:18px;cursor:pointer;padding:6px 8px}
+#list{overflow-y:auto;padding:8px 10px 14px;flex:1;-webkit-overflow-scrolling:touch}
+.row{display:flex;gap:10px;align-items:center;padding:10px;border-radius:16px;background:var(--panel-2);margin-bottom:8px}
+.row.locked{opacity:.6}
+.ic{font-size:30px;width:46px;height:46px;display:grid;place-items:center;background:var(--panel);border-radius:14px;flex:none}
+.info{flex:1;min-width:0}
+.nm{font-weight:800;font-size:15px}
+.lv{font-family:"Lilita One",sans-serif;font-weight:400;color:var(--pink);margin-left:4px}
+.ds{font-size:13px;color:var(--ink-soft);line-height:1.35}
+.ds b{color:var(--good)}
+.buy{border:0;border-radius:14px;background:var(--accent);color:var(--accent-ink);font:inherit;padding:7px 10px;min-width:96px;cursor:pointer;box-shadow:0 3px 0 #c9971f;display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.buy span{font-size:12px;font-weight:800}
+.buy b{font-family:"Lilita One",sans-serif;font-weight:400;font-size:17px}
+.buy:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #c9971f}
+.buy:disabled{background:var(--line);box-shadow:none;color:var(--ink-soft);cursor:default}
+.pips{display:flex;gap:3px;margin:3px 0}
+.pips i{width:14px;height:6px;border-radius:3px;background:var(--line)}
+.pips i.on{background:var(--pink)}
+.stage{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:14px;margin-bottom:6px}
+.stage.done{background:var(--panel-2)}
+.stage.now{border:2px solid var(--accent)}
+.stage .mk{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--line);font-size:14px;flex:none}
+.stage.done .mk{background:var(--good);color:#fff}
+.stage .nm{flex:1}
+.stage .amt{font-family:"Lilita One",sans-serif;color:var(--ink-soft)}
+.goalbar{height:12px;border-radius:8px;background:var(--panel-2);overflow:hidden;margin:4px 0 12px;border:1px solid var(--line)}
+.goalbar i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--accent))}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.stat{background:var(--panel-2);border-radius:14px;padding:9px 12px}
+.stat small{display:block;color:var(--ink-soft);font-weight:700;font-size:12px}
+.stat b{font-family:"Lilita One",sans-serif;font-weight:400;font-size:19px}
+.hint{font-size:13px;color:var(--ink-soft);margin:2px 2px 10px;line-height:1.4}
+.danger{border:0;background:transparent;color:var(--bad);font:inherit;font-weight:800;margin-top:14px;cursor:pointer;padding:8px 0}
+
+.float{position:fixed;z-index:4;pointer-events:none;font-family:"Lilita One",sans-serif;font-size:22px;color:#fff;text-shadow:0 2px 0 #b5651d,0 0 6px rgba(0,0,0,.25);animation:fl 1s ease-out forwards;transform:translate(-50%,-50%)}
+.float.gold{color:#ffe27a;font-size:28px}
+@keyframes fl{to{transform:translate(-50%,-140%);opacity:0}}
+
+#modal{position:fixed;inset:0;z-index:20;display:none;place-items:center;background:rgba(40,25,15,.45);padding:20px}
+#modal.show{display:grid}
+.card{background:var(--panel);border-radius:24px;padding:22px 22px 18px;max-width:380px;width:100%;text-align:center;box-shadow:0 6px 0 rgba(61,38,22,.25)}
+.card .big{font-size:56px;line-height:1}
+.card h2{font-family:"Lilita One",sans-serif;font-weight:400;font-size:26px;margin:8px 0 6px}
+.card p{margin:0 0 14px;line-height:1.5;color:var(--ink-soft)}
+.card .buy{margin:0 auto;min-width:160px;padding:11px 16px}
+.card .buy b{font-size:19px}
+
+@media (min-width:900px){
+  #sheet{left:auto;right:14px;top:calc(env(safe-area-inset-top,0px) + 14px);bottom:14px;height:auto;width:390px;border-radius:22px}
+  #sheet.collapsed{transform:none}
+  #collapse{display:none}
+  #hud{right:420px}
+  #toasts{left:calc(50% - 200px);bottom:24px}
+  #events{left:calc(50% - 200px)}
+}
+.prog{height:7px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;width:0;background:var(--good);transition:width .2s}
+.cat{font-size:17px;margin:14px 2px 6px;color:var(--ink)}
+button:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.toast,.float{animation-duration:.01s}}
+</style>
+</head>
+<body>
+<canvas id="world" aria-label="Your pig farm"></canvas>
+
+<div id="hud">
+  <div class="chip" id="moneyChip">
+    <div id="money" class="num">₱0</div>
+    <div id="rate">₱0/s</div>
+  </div>
+  <div>
+    <div class="chip" id="lvlChip">
+      <div id="stageName" class="display">Backyard hog raiser</div>
+      <div class="lvlrow"><span id="lvl">Farmer Lv 1</span><div class="bar"><i id="xpbar"></i></div></div>
+    </div>
+    <div id="tools">
+      <button class="iconbtn" id="soundBtn" aria-label="Sound on">🔊</button>
+    </div>
+  </div>
+</div>
+
+<div id="events"></div>
+<div id="toasts"></div>
+
+<div id="sheet">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="farm" aria-selected="true">Farm</button>
+    <button class="tab" role="tab" data-tab="learn" aria-selected="false">Learn<span id="ptsBadge"></span></button>
+    <button class="tab" role="tab" data-tab="lab" aria-selected="false">Lab<span id="labBadge"></span></button>
+    <button class="tab" role="tab" data-tab="home" aria-selected="false">Home<span id="homeBadge"></span></button>
+    <button class="tab" role="tab" data-tab="goals" aria-selected="false">Goals</button>
+    <div class="spacer"></div>
+    <button id="buyx" aria-label="Buy amount">×1</button>
+    <button id="collapse" aria-label="Hide panel">▾</button>
+  </div>
+  <div id="list"></div>
+</div>
+
+<div id="modal"><div class="card" id="card"></div></div>
+
+<script src="three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const KEY='piggery-tycoon-v1';
+
+/* ---------- Game data ---------- */
+const B=[
+ {id:'pen',  name:'Pig pen',         icon:'🐖',cost:10,   inc:1,     desc:'Each level adds a pig to your herd.'},
+ {id:'silo', name:'Feed silo',       icon:'🌾',cost:100,  inc:8,     desc:'Bulk feed helps your pigs grow faster.'},
+ {id:'barn', name:'Breeding barn',   icon:'🛖',cost:1200, inc:50,    desc:'Sows raise litters of piglets here.'},
+ {id:'shop', name:'Meat shop',       icon:'🏪',cost:14000,inc:320,   desc:'Sell fresh pork straight to the town.'},
+ {id:'plant',name:'Processing plant',icon:'🏭',cost:1.6e5,inc:2000,  desc:'Make ham, bacon and longganisa.'},
+ {id:'trucks',name:'Delivery fleet', icon:'🚚',cost:2e6,  inc:13000, desc:'Trucks bring your products to every city.'},
+ {id:'bio',  name:'Biogas plant',    icon:'⚡',cost:2.5e7,inc:85000, desc:'Pig manure becomes power you can sell.'},
+ {id:'port', name:'Export port',     icon:'🚢',cost:3e8,  inc:5.6e5, desc:'Ship your pork brand across the world.'},
+ {id:'hq',   name:'Pork brand HQ',   icon:'🏢',cost:4e9,  inc:3.6e6, desc:'Run a global company from the top floor.'},
+ {id:'lab',  name:'Genetics lab',    icon:'🧬',cost:6e10, inc:2.5e7, desc:'Scientists breed tougher, tastier pigs.'},
+ {id:'chain',name:'Restaurant chain',icon:'🍽️',cost:9e11, inc:1.7e8, desc:'Your own lechon restaurants in every mall.'},
+ {id:'cargo',name:'Cargo airline',   icon:'✈️',cost:1.4e13,inc:1.2e9, desc:'Fly fresh pork anywhere overnight.'},
+ {id:'moon', name:'Moon piggery',    icon:'🚀',cost:2.2e14,inc:8e9,   desc:'The first pig farm on the Moon. Why not?'}
+];
+const SK=[
+ {id:'feed', name:'Better feed',     icon:'🥣',max:5,req:1,desc:'+20% income per rank'},
+ {id:'hands',name:'Strong hands',    icon:'✋',max:5,req:2,desc:'Each tap on a pig earns more'},
+ {id:'smart',name:'Smart buying',    icon:'🧾',max:5,req:3,desc:'Buildings cost 5% less per rank'},
+ {id:'vet',  name:'Vet training',    icon:'🩺',max:5,req:4,desc:'+15% income per rank and fewer sick days'},
+ {id:'auto', name:'Farm automation', icon:'⚙️',max:5,req:6,desc:'Keep earning while you are away'},
+ {id:'mkt',  name:'Marketing',       icon:'📣',max:5,req:9,desc:'+30% income per rank'},
+ {id:'lucky',name:'Lucky charm',     icon:'🍀',max:5,req:12,desc:'Golden piglets show up more often'},
+ {id:'tycoon',name:'Tycoon mindset', icon:'💼',max:5,req:18,desc:'+50% income per rank'}
+];
+const STAGES=[[0,'Backyard hog raiser'],[1e3,'Small piggery'],[2.5e4,'Family farm'],[5e5,'Commercial farm'],[1e7,'Regional supplier'],[1e8,'National pork brand'],[1e9,'Pork billionaire'],[1e12,'Global pork empire'],[1e14,'Sky-high pork tycoon'],[1e16,'Pig of the galaxy']];
+const FACTS=[
+ 'Pigs have very few sweat glands, so they roll in mud to stay cool.',
+ 'A mother pig is a sow, a father is a boar, and babies are piglets.',
+ 'A young female pig that has not had piglets yet is called a gilt.',
+ 'A sow is pregnant for about 114 days: roughly 3 months, 3 weeks and 3 days.',
+ 'A sow usually gives birth to about 8 to 12 piglets in one litter.',
+ 'Feed is usually the biggest cost on a pig farm, so good feed planning saves money.',
+ 'Pigs need plenty of clean water every day, especially in hot weather.',
+ 'Light-skinned pigs can get sunburned. Shade in the pen keeps them healthy.',
+ 'A pig\u2019s snout is strong and very sensitive. Pigs use it to dig, or root, for food.',
+ 'Pigs have an excellent sense of smell, much better than ours.',
+ 'Pigs are among the smartest farm animals and can learn their names.',
+ 'Pigs like to keep their sleeping area clean, away from where they poop.',
+ 'Pigs are omnivores. They can eat both plants and animal foods.',
+ 'Biosecurity means keeping germs out: disinfect boots and limit visitors to the farm.',
+ 'African swine fever has no cure, so farms work hard to keep it from getting in.',
+ 'Vaccines on a schedule help protect the whole herd from disease.',
+ 'Keeping records of feed and weight shows how well pigs turn feed into meat.',
+ 'Pig manure can be turned into biogas for cooking and electricity.',
+ 'Pigs talk to each other with many kinds of grunts, oinks and squeals.',
+ 'Piglets are often weaned from their mother at about 3 to 4 weeks old.',
+ 'Backyard farms raise a big share of the pigs in the Philippines.',
+ 'Selling directly to customers through your own shop lets you keep more of the price.',
+ 'Spreading sales across many cities and countries protects a business when one market slows.',
+ 'Big companies grow by reinvesting their profits into new buildings and people.'
+];
+const R=[
+ {id:'g1',cat:'Genetics',icon:'🐽',name:'Healthy piglet program',cost:60,time:20,req:{pen:3},eff:{b:{pen:2}},txt:'Stronger piglets. Pig pens earn ×2.'},
+ {id:'g2',cat:'Genetics',icon:'🐮',name:'Spotted pig breed',cost:2500,time:40,req:{barn:1},eff:{b:{barn:2},skin:'spots'},txt:'Your pigs get cute spots. Breeding barn earns ×2.'},
+ {id:'g3',cat:'Genetics',icon:'🍼',name:'Big litter sows',cost:4e4,time:60,req:{barn:10},eff:{b:{pen:3,barn:2}},txt:'More piglets per litter. Pens ×3, barn ×2.'},
+ {id:'g4',cat:'Genetics',icon:'💪',name:'Tough-as-nails pigs',cost:6e5,time:80,req:{plant:1},eff:{sick:.5,global:1.25},txt:'Half as many sick days and +25% income.'},
+ {id:'g5',cat:'Genetics',icon:'🖤',name:'Black Berkshire line',cost:9e6,time:110,req:{trucks:3},eff:{b:{shop:3,plant:2},skin:'black'},txt:'Premium black pigs. Meat shop ×3, plant ×2.'},
+ {id:'g6',cat:'Genetics',icon:'✨',name:'Golden genes',cost:1.5e8,time:140,req:{bio:1},eff:{gold:3,goldFreq:.6},txt:'Golden piglets are worth ×3 and show up more often.'},
+ {id:'g7',cat:'Genetics',icon:'🦣',name:'Giant pigs',cost:6e9,time:180,req:{hq:1},eff:{big:true,global:2},txt:'Your pigs grow huge. All income ×2.'},
+ {id:'g8',cat:'Genetics',icon:'🌈',name:'Rainbow pigs',cost:2e12,time:240,req:{chain:1},eff:{skin:'rainbow',global:2.5},txt:'Every pig is a different color. All income ×2.5.'},
+ {id:'p1',cat:'Products',icon:'🌭',name:'Homemade longganisa',cost:700,time:30,req:{silo:3},eff:{b:{silo:2},tap:2},txt:'Sell sausages at the market. Silo ×2, taps ×2.'},
+ {id:'p2',cat:'Products',icon:'🍖',name:'Weekend lechon',cost:2e4,time:50,req:{shop:1},eff:{b:{shop:3}},txt:'Whole roast pig every Sunday. Meat shop ×3.'},
+ {id:'p3',cat:'Products',icon:'🥓',name:'Crispy chicharon',cost:3e5,time:70,req:{shop:15},eff:{b:{shop:2,plant:2}},txt:'Crunchy pork skin snacks. Shop ×2, plant ×2.'},
+ {id:'p4',cat:'Products',icon:'🍱',name:'Sweet tocino packs',cost:4e6,time:95,req:{plant:10},eff:{b:{plant:3}},txt:'A breakfast favorite in every fridge. Plant ×3.'},
+ {id:'p5',cat:'Products',icon:'🎄',name:'Noche Buena hams',cost:7e7,time:120,req:{trucks:10},eff:{b:{trucks:3}},txt:'Holiday hams fly off the trucks. Fleet ×3.'},
+ {id:'p6',cat:'Products',icon:'🥡',name:'Pork floss snack line',cost:2.5e9,time:160,req:{port:1},eff:{b:{port:3}},txt:'A hit overseas. Export port ×3.'},
+ {id:'p7',cat:'Products',icon:'🧪',name:'Perfect bacon formula',cost:2e11,time:200,req:{lab:1},eff:{b:{lab:3,hq:2}},txt:'Science-made crispiness. Lab ×3, HQ ×2.'},
+ {id:'p8',cat:'Products',icon:'🌕',name:'Space jerky',cost:4e13,time:260,req:{cargo:1},eff:{b:{cargo:3,moon:3}},txt:'Astronauts love it. Airline ×3, Moon piggery ×3.'},
+ {id:'m1',cat:'Marketing',icon:'🪧',name:'Hand-painted signboard',cost:250,time:25,req:{pen:5},eff:{global:1.2},txt:'Neighbors know where to buy. +20% income.'},
+ {id:'m2',cat:'Marketing',icon:'📻',name:'Radio jingle',cost:1e4,time:45,req:{shop:1},eff:{boom:2},txt:'A catchy song. Market booms last twice as long.'},
+ {id:'m3',cat:'Marketing',icon:'🐷',name:'Piggy mascot costume',cost:2.5e5,time:65,req:{shop:10},eff:{fiesta:true,global:1.25},txt:'Unlocks fiestas where taps earn ×5. +25% income.'},
+ {id:'m4',cat:'Marketing',icon:'📺',name:'TV commercial',cost:5e6,time:90,req:{trucks:1},eff:{global:1.5},txt:'Everyone hums your ad. +50% income.'},
+ {id:'m5',cat:'Marketing',icon:'👨‍🍳',name:'Celebrity chef deal',cost:1.2e8,time:130,req:{bio:3},eff:{global:2},txt:'A famous chef cooks your pork on TV. Income ×2.'},
+ {id:'m6',cat:'Marketing',icon:'💃',name:'Viral oink dance',cost:3e9,time:170,req:{port:5},eff:{tap:5,global:1.5},txt:'The oink dance goes viral. Taps ×5, +50% income.'},
+ {id:'m7',cat:'Marketing',icon:'🏟️',name:'World games sponsor',cost:1e12,time:220,req:{chain:5},eff:{global:3},txt:'Your logo in every stadium. Income ×3.'},
+ {id:'m8',cat:'Marketing',icon:'🛸',name:'Ad on the Moon',cost:8e14,time:300,req:{moon:5},eff:{global:5},txt:'Visible from Earth every night. Income ×5.'}
+];
+const HOMES=[
+ {id:'h0',name:'Bahay kubo',icon:'🛖',req:1,cost:0,bonus:0,txt:'Your humble nipa hut beside the pen.'},
+ {id:'h1',name:'Concrete bungalow',icon:'🏠',req:5,cost:8e3,bonus:.1,txt:'A real roof that stays dry in typhoon season.'},
+ {id:'h2',name:'Two-storey house',icon:'🏡',req:10,cost:6e5,bonus:.3,txt:'Room for the whole family, with a balcony.'},
+ {id:'h3',name:'Hacienda',icon:'🏘️',req:15,cost:6e7,bonus:.7,txt:'A wide farmhouse with a shady veranda.'},
+ {id:'h4',name:'Mansion with pool',icon:'🏰',req:21,cost:8e9,bonus:1.5,txt:'Marble floors, a pool and palm trees.'},
+ {id:'h5',name:'Private island resort',icon:'🏝️',req:30,cost:3e13,bonus:3,txt:'Your own island villa on the lake. You keep the mansion too.'}
+];
+const CARS=[
+ {id:'c1',name:'Bicycle',icon:'🚲',req:2,cost:300,bonus:.05,txt:'Pedal to the market.'},
+ {id:'c2',name:'Motorbike',icon:'🏍️',req:4,cost:4e3,bonus:.08,txt:'Zip around town delivering pork.'},
+ {id:'c3',name:'Tricycle',icon:'🛺',req:6,cost:4e4,bonus:.12,txt:'Carry piglets and feed sacks in the sidecar.'},
+ {id:'c4',name:'Owner-type jeep',icon:'🚙',req:9,cost:5e5,bonus:.2,txt:'Classic, shiny and open-air.'},
+ {id:'c5',name:'Pickup truck',icon:'🛻',req:12,cost:6e6,bonus:.3,txt:'Haul a whole litter at once.'},
+ {id:'c6',name:'Luxury SUV',icon:'🚘',req:16,cost:1.2e8,bonus:.5,txt:'Cold aircon and leather seats.'},
+ {id:'c7',name:'Sports car',icon:'🏎️',req:20,cost:3e9,bonus:.8,txt:'Very fast, very red.'},
+ {id:'c8',name:'Helicopter',icon:'🚁',req:25,cost:3e11,bonus:1.2,txt:'Skip the traffic. Lands on your own helipad.'},
+ {id:'c9',name:'Private jet',icon:'🛩️',req:31,cost:8e13,bonus:2,txt:'Fly to your farms around the world.'}
+];
+
+/* ---------- State ---------- */
+function fresh(){return {money:0,lifetime:0,lv:{pen:1},sk:{},golden:0,taps:0,won:false,lastLevel:1,boostT:0,sickT:0,t:Date.now(),sound:true,fact:0,rs:{done:{},cur:null,left:0},fiestaT:0,stage:0,home:0,cars:0};}
+let S=fresh();
+try{const r=localStorage.getItem(KEY); if(r){const d=JSON.parse(r); S=Object.assign(fresh(),d); S.lv=Object.assign({pen:1},d.lv||{}); S.sk=d.sk||{};S.rs=Object.assign({done:{},cur:null,left:0},d.rs||{});S.rs.done=S.rs.done||{};}}catch(e){}
+function save(){S.t=Date.now(); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+const lvOf=id=>S.lv[id]||0, sk=id=>S.sk[id]||0;
+function need(L){return L<=1?0:20*Math.pow(2.1,L-1);}
+function levelOf(x){return x<need(2)?1:1+Math.floor(Math.log(x/20)/Math.log(2.1)+1e-9);}
+function spent(){let s=0;for(const k in S.sk)s+=S.sk[k];return s;}
+function points(){return levelOf(S.lifetime)-1-spent();}
+function rDone(id){return !!S.rs.done[id];}
+function rEff(key){let v=1;for(const r of R)if(rDone(r.id)&&typeof r.eff[key]==='number')v*=r.eff[key];return v;}
+function lifeBonus(){let b=HOMES[S.home||0].bonus;for(let i=0;i<(S.cars||0);i++)b+=CARS[i].bonus;return b;}
+function rB(bid){let v=1;for(const r of R)if(rDone(r.id)&&r.eff.b&&r.eff.b[bid])v*=r.eff.b[bid];return v;}
+function mult(){let m=(1+.2*sk('feed'))*(1+.15*sk('vet'))*(1+.3*sk('mkt'))*(1+.5*sk('tycoon'))*rEff('global')*(1+lifeBonus());if(S.boostT>0)m*=2;if(S.sickT>0)m*=.5;return m;}
+function bInc(b,l){return b.inc*l*Math.pow(2,Math.floor(l/25))*rB(b.id);}
+function income(){let s=0;for(const b of B)s+=bInc(b,lvOf(b.id));return s*mult();}
+function costAt(b,l){return b.cost*Math.pow(1.15,l)*(1-.05*sk('smart'));}
+function tapValue(){return Math.max(1,income()*.08)*(1+sk('hands'))*rEff('tap')*(S.fiestaT>0?5:1);}
+let buyMode=1;
+function bulk(b){const c0=costAt(b,lvOf(b.id));let n=buyMode;if(buyMode==='max'){n=Math.floor(Math.log(S.money*.15/c0+1)/Math.log(1.15));if(n<1)n=1;}return{n,cost:c0*(Math.pow(1.15,n)-1)/.15};}
+function stageIdx(){let i=0;STAGES.forEach((s,k)=>{if(S.lifetime>=s[0])i=k;});return i;}
+function fmt(n){
+  if(!isFinite(n))return '∞';
+  if(n<1000)return n<10&&n%1?n.toFixed(1):Math.floor(n).toString();
+  const u=['','K','M','B','T','Qa','Qi','Sx'];let e=Math.min(u.length-1,Math.floor(Math.log10(n)/3));const v=n/Math.pow(1000,e);
+  return (v<10?v.toFixed(2):v<100?v.toFixed(1):Math.floor(v))+u[e];
+}
+
+/* ---------- Sound ---------- */
+let AC=null;
+function oink(pitch){
+  if(!S.sound)return;
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain(),f=AC.createBiquadFilter();
+    o.type='sawtooth';f.type='lowpass';f.frequency.value=900;
+    o.frequency.setValueAtTime(260*pitch,t);o.frequency.exponentialRampToValueAtTime(140*pitch,t+.18);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.18,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.22);
+    o.connect(f);f.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+.25);
+  }catch(e){}
+}
+function chime(){
+  if(!S.sound)return;
+  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime;[660,880,1320].forEach((fq,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.type='triangle';o.frequency.value=fq;g.gain.setValueAtTime(.0001,t+i*.08);g.gain.exponentialRampToValueAtTime(.12,t+i*.08+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.08+.3);o.connect(g);g.connect(AC.destination);o.start(t+i*.08);o.stop(t+i*.08+.35);});}catch(e){}
+}
+
+/* ---------- 3D world ---------- */
+const canvas=$('world');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+const dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;
+const SKY=dark?0x5a6f99:0x9fd8f0;
+scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,170,320);
+document.body.style.background='#'+SKY.toString(16).padStart(6,'0');
+const camera=new THREE.PerspectiveCamera(45,1,.5,520);
+scene.add(new THREE.HemisphereLight(0xffffff,0x6b8f3a,dark?.55:.75));
+const sun=new THREE.DirectionalLight(dark?0xffd2a8:0xfff1d6,dark?.7:.95);
+sun.position.set(35,60,25);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-85,right:85,top:85,bottom:-85,near:1,far:260});scene.add(sun);
+
+const MC={};
+function mat(c,o){const k=c+(o?JSON.stringify(o):'');return MC[k]||(MC[k]=new THREE.MeshLambertMaterial(Object.assign({color:c},o||{})));}
+function mk(geo,m,x,y,z){const ms=new THREE.Mesh(geo,typeof m==='number'?mat(m):m);ms.position.set(x||0,y||0,z||0);ms.castShadow=true;ms.receiveShadow=true;return ms;}
+const BOX=new THREE.BoxGeometry(1,1,1);
+function box(w,h,d,c,x,yb,z){const m=mk(BOX,c,x,(yb||0)+h/2,z);m.scale.set(w,h,d);return m;}
+function cyl(rt,rb,h,c,x,yb,z,seg){return mk(new THREE.CylinderGeometry(rt,rb,h,seg||16),c,x,(yb||0)+h/2,z);}
+function cone(r,h,c,x,yb,z,seg){return mk(new THREE.ConeGeometry(r,h,seg||16),c,x,(yb||0)+h/2,z);}
+function prismRoof(w,len,c,x,y,z){const r=w/Math.sqrt(3)*1.05;const m=mk(new THREE.CylinderGeometry(r,r,len,3),c,x,y+r/2,z);m.rotation.x=-Math.PI/2;return m;}
+
+// ground
+const ground=mk(new THREE.CircleGeometry(100,64),dark?0x5d9446:0x7cc35a);ground.rotation.x=-Math.PI/2;ground.castShadow=false;scene.add(ground);
+const lake=box(70,.2,26,0x4fa3d9,0,-.05,-63);lake.castShadow=false;scene.add(lake);
+const sand=box(74,.12,4,0xe8d08a,0,-.04,-49);sand.castShadow=false;scene.add(sand);
+// pen
+const PEN={x:9,z:7};
+const dirt=box(PEN.x*2,.08,PEN.z*2,0xa47149,0,0,0);dirt.castShadow=false;scene.add(dirt);
+const mud=mk(new THREE.CircleGeometry(2.6,24),0x6b4329,-4,.1,2.5);mud.rotation.x=-Math.PI/2;mud.scale.set(1.3,1,1);scene.add(mud);
+const fence=new THREE.Group();
+for(let x=-PEN.x;x<=PEN.x;x+=2){fence.add(box(.3,1.4,.3,0xc89a6a,x,0,-PEN.z));fence.add(box(.3,1.4,.3,0xc89a6a,x,0,PEN.z));}
+for(let z=-PEN.z+2;z<PEN.z;z+=2){fence.add(box(.3,1.4,.3,0xc89a6a,-PEN.x,0,z));fence.add(box(.3,1.4,.3,0xc89a6a,PEN.x,0,z));}
+[.5,1.05].forEach(y=>{fence.add(box(PEN.x*2,.18,.14,0xb3825a,0,y,-PEN.z));fence.add(box(PEN.x*2,.18,.14,0xb3825a,0,y,PEN.z));fence.add(box(.14,.18,PEN.z*2,0xb3825a,-PEN.x,y,0));fence.add(box(.14,.18,PEN.z*2,0xb3825a,PEN.x,y,0));});
+scene.add(fence);
+scene.add(box(4,.6,1,0x8a5a3b,5,0,-4.5));scene.add(box(3.6,.15,.7,0xf2c94c,5,.5,-4.5));
+// bahay kubo
+const kubo=new THREE.Group();
+kubo.add(box(5,.4,4,0x9b7445,0,1.2,0));[[-2.2,-1.7],[2.2,-1.7],[-2.2,1.7],[2.2,1.7]].forEach(p=>kubo.add(box(.3,1.4,.3,0x7a5530,p[0],0,p[1])));
+kubo.add(box(4.6,2.6,3.6,0xd8b47a,0,1.6,0));kubo.add(box(1,1.6,.1,0x7a5530,0,1.6,1.82));
+const kr=cone(4.4,3,0xb89a52,0,4.2,0,4);kr.rotation.y=Math.PI/4;kubo.add(kr);
+const lifeSpot=new THREE.Group();lifeSpot.position.set(12,0,16);lifeSpot.rotation.y=-.5;scene.add(lifeSpot);
+function palm(x,z,s){const p=new THREE.Group();const tr=cyl(.22,.32,4.2,0x9b7445,0,0,0,8);tr.rotation.z=.1;p.add(tr);for(let i=0;i<6;i++){const pv=new THREE.Group();pv.position.y=4.1;pv.rotation.y=i*Math.PI/3;const lf=box(.6,.12,2.6,0x3f9a3a,0,0,1.2);lf.rotation.x=.4;pv.add(lf);p.add(pv);}p.position.set(x,0,z);p.scale.setScalar(s||1);return p;}
+const HG=[kubo];
+{const g=new THREE.Group();g.add(box(6,3,5,0xf5efe6,0,0,0));const r=cone(4.6,2.4,0xd9643a,0,3,0,4);r.rotation.y=Math.PI/4;g.add(r);g.add(box(1.1,2,.1,0x8a5a3b,0,0,2.52));g.add(box(1.2,1,.1,0x7fc8e8,-1.8,1,2.52));g.add(box(1.2,1,.1,0x7fc8e8,1.8,1,2.52));HG.push(g);}
+{const g=new THREE.Group();g.add(box(7,3,5.5,0xfbe3c4,0,0,0));g.add(box(7,2.8,5.5,0xf5efe6,0,3,0));g.add(prismRoof(7.6,6,0x3e7fc1,0,5.8,0));g.add(box(3,.2,1.4,0xb3825a,0,3,3.4));g.add(box(3,.6,.08,0xffffff,0,3.2,4.08));g.add(box(1.2,2.2,.1,0x8a5a3b,0,0,2.77));[-2.3,2.3].forEach(x=>{g.add(box(1.3,1.1,.1,0x7fc8e8,x,1,2.77));g.add(box(1.3,1.1,.1,0x7fc8e8,x,4,2.77));});HG.push(g);}
+{const g=new THREE.Group();g.add(box(11,3.6,6.5,0xfff3e0,0,0,0));const rg=new THREE.Group();rg.add(prismRoof(6.9,11.6,0xb5482c,0,3.6,0));rg.rotation.y=Math.PI/2;g.add(rg);g.add(box(10,.3,1.8,0xb5482c,0,3.4,4.1));for(let x=-4.5;x<=4.5;x+=1.5)g.add(cyl(.18,.18,3.4,0xffffff,x,0,4.7,8));g.add(box(1.4,2.4,.1,0x8a5a3b,0,0,3.27));[-3.4,-1.8,1.8,3.4].forEach(x=>g.add(box(1,1.3,.1,0x7fc8e8,x,1,3.27)));HG.push(g);}
+{const g=new THREE.Group();g.add(box(10,4,7,0xffffff,0,0,0));g.add(box(6,3.5,6,0xf2f2f2,0,4,0));g.add(box(10.6,.4,7.6,0x9fb7c9,0,4,0));g.add(box(6.6,.4,6.6,0x9fb7c9,0,7.5,0));[-3,-1,1,3].forEach(x=>g.add(cyl(.3,.3,4,0xffffff,x,0,4.2,10)));g.add(box(9,.3,1.8,0xffffff,0,4,4.3));g.add(box(1.6,2.6,.1,0x8a5a3b,0,0,3.52));[-4,4].forEach(x=>g.add(box(1.4,1.6,.1,0x7fc8e8,x,1.2,3.52)));[-1.8,1.8].forEach(x=>g.add(box(1.2,1.4,.1,0x7fc8e8,x,5,3.02)));
+ g.add(box(4.8,.2,3.8,0xe8d08a,-8,0,-1));const pool=box(4,.1,3,0x4fc3f7,-8,.2,-1);pool.castShadow=false;g.add(pool);g.add(palm(-10.8,1.6,.8));g.add(palm(-5.6,-3.6,.7));g.add(palm(6.5,3,.8));HG.push(g);}
+HG.forEach(g=>{g.position.set(0,0,0);g.rotation.y=0;g.visible=false;lifeSpot.add(g);});
+const island=new THREE.Group();island.add(cyl(7,7.5,.8,0xe8d08a,0,-.5,0,24));island.add(box(5,2.6,4,0xfff3e0,0,.3,0));{const ir=cone(4.2,2.4,0xb89a52,0,2.9,0,4);ir.rotation.y=Math.PI/4;island.add(ir);}island.add(palm(-4,2,.9));island.add(palm(4,-2.5,1));island.add(palm(3.5,3,.8));island.add(box(1.2,.2,5,0x9b7445,0,.1,6));
+island.position.set(-22,0,-64);island.visible=false;scene.add(island);
+const WG=new THREE.CylinderGeometry(1,1,1,14);
+function wheel(r,w,x,z){const m=mk(WG,0x222222,x,r,z);m.scale.set(r,w,r);m.rotation.x=Math.PI/2;return m;}
+const VG=[];
+function addV(g,x,z,ry){g.position.set(x,0,z);g.rotation.y=ry||0;g.visible=false;scene.add(g);VG.push(g);}
+{const g=new THREE.Group();g.add(wheel(.45,.06,.6,0));g.add(wheel(.45,.06,-.6,0));g.add(box(1.2,.08,.08,0x3e7fc1,0,.75,0));g.add(box(.08,.7,.08,0x3e7fc1,-.2,.45,0));g.add(box(.35,.08,.22,0x222222,-.25,1.12,0));g.add(box(.08,.5,.08,0x888888,.55,.75,0));g.add(box(.08,.08,.6,0x888888,.55,1.25,0));g.scale.setScalar(1.3);addV(g,6,25,.3);}
+{const g=new THREE.Group();g.add(wheel(.4,.18,.75,0));g.add(wheel(.4,.18,-.75,0));g.add(box(1.3,.45,.42,0xe0566e,0,.4,0));g.add(box(.75,.14,.4,0x222222,-.2,.85,0));g.add(box(.1,.55,.1,0x888888,.65,.7,0));g.add(box(.1,.1,.75,0x888888,.65,1.22,0));g.scale.setScalar(1.2);addV(g,8.6,25,.3);}
+{const g=new THREE.Group();g.add(wheel(.4,.18,.75,0));g.add(wheel(.4,.18,-.75,0));g.add(box(1.3,.45,.42,0xe0566e,0,.4,0));g.add(box(.75,.14,.4,0x222222,-.2,.85,0));g.add(box(1.7,1.1,1.1,0x3e7fc1,-.1,.35,.95));g.add(wheel(.35,.16,-.1,1.55));g.add(box(2.1,.1,2.4,0xffffff,-.1,2.1,.55));[[-1,-.5],[.9,-.5],[-1,1.5],[.9,1.5]].forEach(p=>g.add(box(.08,1.5,.08,0xcccccc,p[0],.6,p[1])));addV(g,11.8,25,.3);}
+{const g=new THREE.Group();g.add(box(3.4,.9,1.7,0xd7dde4,0,.45,0));g.add(box(1.1,.25,1.7,0xc0c6cd,1.15,1.35,0));g.add(box(.08,.7,1.6,0x666666,.5,1.35,0));g.add(box(.06,.06,1.7,0x888888,-.6,2.1,0));g.add(box(1.1,.06,.06,0x888888,-.05,2.08,.82));g.add(box(1.1,.06,.06,0x888888,-.05,2.08,-.82));g.add(box(.3,.5,1.2,0xc0c6cd,1.75,.6,0));[[1.1,.85],[1.1,-.85],[-1.1,.85],[-1.1,-.85]].forEach(p=>g.add(wheel(.45,.3,p[0],p[1])));addV(g,15.5,25,.3);}
+{const g=new THREE.Group(),c=0x4f9a3a;g.add(box(1.5,1.3,1.8,c,.6,.5,0));g.add(box(.05,.6,1.6,0x7fc8e8,1.36,1.1,0));g.add(box(1.1,.75,1.8,c,1.9,.5,0));g.add(box(2.1,.6,1.8,c,-1.2,.5,0));g.add(box(1.9,.1,1.5,0x2a4f20,-1.2,1,0));[[1.6,.9],[1.6,-.9],[-1.3,.9],[-1.3,-.9]].forEach(p=>g.add(wheel(.48,.3,p[0],p[1])));addV(g,20,25,.3);}
+{const g=new THREE.Group();g.add(box(3.8,1.4,1.9,0x222831,0,.5,0));g.add(box(2.3,.5,1.94,0x7fc8e8,-.2,1.3,0));g.add(box(.1,.25,1.6,0xcccccc,1.92,.8,0));[[1.2,.95],[1.2,-.95],[-1.2,.95],[-1.2,-.95]].forEach(p=>g.add(wheel(.52,.32,p[0],p[1])));addV(g,9.5,29.5,.3);}
+{const g=new THREE.Group();g.add(box(3.8,.55,1.85,0xd62828,0,.3,0));g.add(box(1.6,.45,1.5,0x2b2b2b,-.3,.85,0));g.add(box(.3,.08,1.85,0xd62828,-1.8,1.15,0));g.add(box(.12,.3,.12,0xd62828,-1.8,.85,.7));g.add(box(.12,.3,.12,0xd62828,-1.8,.85,-.7));[[1.2,.93],[1.2,-.93],[-1.2,.93],[-1.2,-.93]].forEach(p=>g.add(wheel(.38,.3,p[0],p[1])));addV(g,15,29.5,.3);}
+{const g=new THREE.Group();const pad=cyl(2.7,2.7,.15,0xd6d6d6,0,0,0,24);pad.castShadow=false;g.add(pad);g.add(box(.3,.03,1.6,0xffffff,-.5,.15,0));g.add(box(.3,.03,1.6,0xffffff,.5,.15,0));g.add(box(.8,.03,.3,0xffffff,0,.15,0));
+ const h=new THREE.Group();const bd=mk(new THREE.SphereGeometry(1.1,14,10),0xf2c94c,0,1.5,0);bd.scale.set(1.45,1,1);h.add(bd);h.add(mk(new THREE.SphereGeometry(.6,10,8),0x7fc8e8,1.05,1.65,0));h.add(box(3,.3,.3,0xf2c94c,-2.6,1.6,0));h.add(box(.2,.9,.12,0xf2c94c,-4,1.6,0));h.add(box(2.6,.08,.1,0x555555,0,.3,.7));h.add(box(2.6,.08,.1,0x555555,0,.3,-.7));h.add(box(.1,.4,.1,0x555555,0,.35,.7));h.add(box(.1,.4,.1,0x555555,0,.35,-.7));
+ const rotor=box(6.5,.06,.3,0x333333,0,2.75,0);h.add(rotor);h.add(cyl(.12,.12,.4,0x333333,0,2.5,0,8));h.userData.rotor=rotor;g.add(h);g.userData.h=h;addV(g,27,21,-.4);}
+{const g=new THREE.Group();const f=mk(new THREE.CylinderGeometry(.6,.45,7,12),0xffffff,0,0,0);f.rotation.z=Math.PI/2;g.add(f);const nose=mk(new THREE.ConeGeometry(.6,1.2,12),0xffffff,4.1,0,0);nose.rotation.z=-Math.PI/2;g.add(nose);g.add(box(1.8,.12,7.5,0xffffff,-.2,-.15,0));g.add(box(1,1.4,.12,0xec8fa3,-3.1,.2,0));g.add(box(.8,.1,2.6,0xec8fa3,-3.1,.3,0));g.add(box(5.5,.1,1.24,0xec8fa3,.2,-.05,0));g.visible=false;scene.add(g);VG.push(g);}
+function syncLife(){const h=S.home||0;HG.forEach((g,i)=>g.visible=i===Math.min(h,4));island.visible=h>=5;VG.forEach((g,i)=>g.visible=i<(S.cars||0));}
+// trees
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+for(let i=0;i<70;i++){
+  const a=rnd()*Math.PI*2,r=46+rnd()*44,x=Math.cos(a)*r,z=Math.sin(a)*r;
+  if(z<-44&&Math.abs(x)<40)continue;
+  if(Math.hypot(x-62,z-4)<27||Math.hypot(x,z-54)<17||Math.hypot(x+56,z-26)<10)continue;
+  const t=new THREE.Group(),s=.8+rnd()*.7;
+  t.add(cyl(.35,.45,2,0x7a5530,0,0,0,8));
+  if(rnd()<.5){t.add(cone(2,4.2,0x3f8f3a,0,1.6,0,9));}else{t.add(mk(new THREE.SphereGeometry(2,10,8),0x4fa84a,0,3.4,0));}
+  t.position.set(x,0,z);t.scale.setScalar(s);scene.add(t);
+}
+
+/* buildings */
+const G={};
+function addB(id,group,x,z,ry){group.position.set(x,0,z);group.rotation.y=ry||0;group.visible=false;group.userData.pop=0;scene.add(group);G[id]=group;}
+addB('pen',new THREE.Group(),0,0);
+{const g=new THREE.Group();g.add(cyl(1.7,1.7,7,0xc9ced6,-1.8,0,0));g.add(cone(1.9,1.6,0xa7aeb8,-1.8,7,0));g.add(cyl(1.4,1.4,5.5,0xdde1e7,1.8,0,.5));g.add(cone(1.6,1.3,0xa7aeb8,1.8,5.5,.5));g.add(box(1.2,.3,4,0x8f969f,0,6,0));addB('silo',g,-15,-11);}
+{const g=new THREE.Group();g.add(box(6.6,4.5,8,0xc0392b,0,0,0));g.add(prismRoof(7.2,8.6,0x7d2a20,0,4.5,0));g.add(box(2.6,3,.12,0xf5efe6,0,0,4.02));g.add(box(.25,3,.14,0xc0392b,0,0,4.06));addB('barn',g,15,-10);}
+{const g=new THREE.Group();g.add(box(6,3.4,4.4,0xf5efe6,0,0,0));for(let i=0;i<6;i++)g.add(box(1,.3,1.6,i%2?0xffffff:0xe0566e,-2.5+i,3,2.6));g.add(box(6.4,.4,4.8,0x9b7445,0,3.4,0));g.add(box(3.4,1,.2,0xf6c445,0,3.8,1.9));g.add(box(2.4,1.8,.1,0x7fc8e8,0,.6,2.22));addB('shop',g,-20,8,.4);}
+{const g=new THREE.Group();g.add(box(11,5,8,0xb9c1c9,0,0,0));g.add(box(11.4,.6,8.4,0x3e7fc1,0,5,0));g.add(cyl(.7,.9,5,0x8f969f,-3,5.6,-2));g.add(cyl(.7,.9,4,0x8f969f,-1,5.6,-2));for(let i=0;i<4;i++)g.add(box(1.6,1,.1,0x7fc8e8,-3.6+i*2.4,2.6,4.02));g.add(box(3,2.6,.1,0x5d656d,3,0,4.02));addB('plant',g,21,10,-.3);}
+const road=mk(new THREE.RingGeometry(37.5,41,80),0x7d7f86);road.rotation.x=-Math.PI/2;road.position.y=.06;road.castShadow=false;road.visible=false;scene.add(road);
+const spur=box(3.5,.1,18,0x7d7f86,-6,.02,29);spur.castShadow=false;spur.visible=false;scene.add(spur);
+{const g=new THREE.Group();g.add(box(8,3.6,5,0xe3a857,0,0,0));g.add(box(8.4,.5,5.4,0x6b4a2b,0,3.6,0));g.add(box(3,2.8,.1,0x5d656d,-1.6,0,2.52));g.add(box(3,2.8,.1,0x5d656d,1.8,0,2.52));addB('trucks',g,-6,20);}
+{const g=new THREE.Group();const dome=new THREE.SphereGeometry(3,18,10,0,Math.PI*2,0,Math.PI/2);g.add(mk(dome,0x5aa25a,-2.5,0,0));g.add(mk(dome,0x5aa25a,3,0,1));g.add(cyl(.3,.3,6,0x8f969f,.3,0,-1));g.add(box(6,.3,.3,0x8f969f,.3,5.6,-1));g.add(cone(.6,1,0xffb347,.3,6,-1,8));addB('bio',g,-25,-18);}
+{const g=new THREE.Group();g.add(box(8,1,12,0x9b8a73,0,0,-4));g.add(box(1.2,14,1.2,0xf2c94c,3,1,-3));g.add(box(12,1,1,0xf2c94c,0,14,-3));g.add(box(.2,6,.2,0x333333,-4,9,-3));
+ const ship=new THREE.Group();ship.add(box(16,2.4,5,0x2f4f7f,0,0,0));ship.add(box(3,3,4,0xffffff,-6,2.4,0));
+ [0xe0566e,0xf2c94c,0x4f9a3a,0x3e7fc1,0xec8fa3,0xe3a857].forEach((c,i)=>ship.add(box(2.6,1.6,1.9,c,-2.5+(i%3)*3,2.4+Math.floor(i/3)*1.6,(i%2)?.95:-.95)));
+ ship.position.set(-3,-.6,-15);g.add(ship);g.userData.ship=ship;addB('port',g,4,-48);}
+{const g=new THREE.Group();g.add(box(7,6,7,0x9fb7c9,0,0,0));g.add(box(5.4,8,5.4,0x86a4bb,0,6,0));g.add(box(3.8,7,3.8,0x6f93ad,0,14,0));g.add(cyl(.12,.12,4,0xdddddd,0,21,0,6));
+ const logo=mk(new THREE.SphereGeometry(1.4,16,12),0xec8fa3,0,22.5,0);logo.scale.set(1.3,1,1);g.add(logo);
+ for(let y=1;y<20;y+=2.2)g.add(box(y<6?7.1:y<14?5.5:3.9,.15,y<6?7.1:y<14?5.5:3.9,0xffffff,0,y,0));addB('hq',g,21,-26);}
+{const g=new THREE.Group();g.add(box(7,3.5,6,0xf5f7fa,0,0,0));g.add(mk(new THREE.SphereGeometry(2.4,16,10,0,Math.PI*2,0,Math.PI/2),0x9fd3e8,0,3.5,0));
+ const helix=new THREE.Group(),hs=new THREE.SphereGeometry(.28,8,6);for(let i=0;i<14;i++){const a=i*.7,y=i*.45;helix.add(mk(hs,i%2?0xec8fa3:0x3e7fc1,Math.cos(a)*.9,y,Math.sin(a)*.9));helix.add(mk(hs,i%2?0x3e7fc1:0xec8fa3,-Math.cos(a)*.9,y,-Math.sin(a)*.9));}
+ helix.position.set(4.6,.3,2.4);g.add(helix);g.userData.helix=helix;addB('lab',g,-31,-4,.5);}
+{const g=new THREE.Group();[-9,0,9].forEach((x,i)=>{g.add(box(6,3.2,5,0xfff3e0,x,0,0));g.add(box(6.6,.6,5.6,[0xec8fa3,0xf2c94c,0xe0566e][i],x,3.2,0));const s=mk(new THREE.SphereGeometry(1,12,10),0xf2a7b5,x,4.9,0);s.scale.set(1.3,1,1);g.add(s);g.add(box(2,1.8,.1,0x7fc8e8,x,.6,2.52));});addB('chain',g,0,54,Math.PI);}
+{const g=new THREE.Group();const rw=box(7,.1,44,0x55575c,0,0,0);rw.castShadow=false;g.add(rw);for(let z=-18;z<=18;z+=6)g.add(box(.5,.12,2.5,0xffffff,0,0,z));g.add(box(8,5,9,0xb9c1c9,-9,0,-12));g.add(box(8.4,.5,9.4,0x3e7fc1,-9,5,-12));addB('cargo',g,62,4,0);}
+const plane=new THREE.Group();{const f=mk(new THREE.CylinderGeometry(.9,.7,9,12),0xffffff,0,0,0);f.rotation.z=Math.PI/2;plane.add(f);plane.add(box(2.4,.25,11,0xffffff,0,-.2,0));plane.add(box(1.4,2,.25,0xec8fa3,-4,.3,0));plane.add(box(1.2,.2,4,0xffffff,-4,.1,0));}plane.visible=false;scene.add(plane);
+{const g=new THREE.Group();g.add(cyl(4,4.4,.8,0x8f969f,0,0,0,20));const rk=new THREE.Group();rk.add(cyl(1.2,1.2,8,0xffffff,0,0,0,16));rk.add(cone(1.2,2.6,0xe0566e,0,8,0,16));[0,1,2,3].forEach(i=>{const fn=box(1.4,2,.2,0xe0566e,Math.cos(i*Math.PI/2)*1.3,0,Math.sin(i*Math.PI/2)*1.3);fn.rotation.y=-i*Math.PI/2;rk.add(fn);});rk.add(mk(new THREE.SphereGeometry(.7,12,10),0xf2a7b5,0,5,1));
+ rk.position.y=.8;g.add(rk);g.userData.rocket=rk;g.add(box(.8,12,.8,0xf2c94c,-3.2,0,0));addB('moon',g,-56,26);}
+const moon=new THREE.Group();{moon.add(new THREE.Mesh(new THREE.SphereGeometry(14,24,18),new THREE.MeshLambertMaterial({color:0xe8e4da,emissive:0x333028,fog:false})));const dm=new THREE.Mesh(new THREE.SphereGeometry(4.5,16,10,0,Math.PI*2,0,Math.PI/2),new THREE.MeshLambertMaterial({color:0x9fe0ff,transparent:true,opacity:.75,fog:false}));dm.position.y=13.3;moon.add(dm);}
+moon.position.set(-120,60,-150);moon.visible=false;scene.add(moon);
+
+/* trucks */
+const truckGroup=new THREE.Group();scene.add(truckGroup);const trucks=[];
+function makeTruck(c){const t=new THREE.Group();t.add(box(1.6,1.5,1.8,c,1.6,.5,0));t.add(box(3.2,2,2,0xf5efe6,-.8,.5,0));t.add(box(.1,.7,1.5,0x7fc8e8,2.42,1.1,0));
+ const w=new THREE.CylinderGeometry(.42,.42,.3,10);[[1.5,1],[1.5,-1],[-1.4,1],[-1.4,-1]].forEach(p=>{const m=mk(w,0x222222,p[0],.42,p[1]);m.rotation.x=Math.PI/2;t.add(m);});return t;}
+function syncTrucks(){const want=lvOf('trucks')?Math.min(7,1+Math.floor(lvOf('trucks')/5)):0;while(trucks.length<want){const t=makeTruck([0xe0566e,0x3e7fc1,0xf2c94c,0x4f9a3a][trucks.length%4]);t.userData.a=trucks.length*(Math.PI*2/7);truckGroup.add(t);trucks.push(t);}road.visible=spur.visible=want>0;}
+
+/* pigs */
+const pigMat=new THREE.MeshLambertMaterial({color:0xf2a7b5});
+const snoutMat=new THREE.MeshLambertMaterial({color:0xe07f95});
+const goldMat=new THREE.MeshLambertMaterial({color:0xffd34d,emissive:0x7a5200});
+const eyeMat=mat(0x222222);
+const PG={body:new THREE.SphereGeometry(1,16,12),head:new THREE.SphereGeometry(.62,14,10),snout:new THREE.CylinderGeometry(.28,.3,.3,12),eye:new THREE.SphereGeometry(.08,6,6),ear:new THREE.ConeGeometry(.2,.42,6),leg:new THREE.CylinderGeometry(.16,.14,.6,8),tail:new THREE.TorusGeometry(.14,.05,6,10,Math.PI*1.5)};
+const blackMat=new THREE.MeshLambertMaterial({color:0x2e2a2b});const spotMat=mat(0x5a3a2e);const spotGeo=new THREE.SphereGeometry(.34,10,8);
+const bodyMats=[pigMat,blackMat];
+function skin(){return rDone('g8')?'rainbow':rDone('g5')?'black':rDone('g2')?'spots':'plain';}
+function makePig(gold){
+  const look=gold?'gold':skin();let m=pigMat;
+  if(look==='gold')m=goldMat;else if(look==='black')m=blackMat;else if(look==='rainbow'){m=new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL(Math.random(),.75,.68)});bodyMats.push(m);}
+  const sm=gold?goldMat:snoutMat,g=new THREE.Group();
+  const body=mk(PG.body,m,0,.95,0);body.scale.set(1.3,.9,.9);g.add(body);
+  if(look==='spots')[[.2,1.78,.25],[-.5,1.62,-.42],[-.3,1.25,.78],[.5,1.2,-.75]].forEach(p=>{const s=mk(spotGeo,spotMat,p[0],p[1],p[2]);s.scale.set(1,.45,1);g.add(s);});
+  g.add(mk(PG.head,m,1.25,1.12,0));
+  const sn=mk(PG.snout,sm,1.82,1.02,0);sn.rotation.z=Math.PI/2;g.add(sn);
+  g.add(mk(PG.eye,eyeMat,1.68,1.33,.24));g.add(mk(PG.eye,eyeMat,1.68,1.33,-.24));
+  [.33,-.33].forEach(z=>{const e=mk(PG.ear,sm,1.15,1.72,z);e.rotation.z=-.5;g.add(e);});
+  const legs=[];[[.62,.42],[.62,-.42],[-.62,.42],[-.62,-.42]].forEach(p=>{const l=mk(PG.leg,m,p[0],.3,p[1]);legs.push(l);g.add(l);});
+  const t=mk(PG.tail,sm,-1.32,1.1,0);t.rotation.y=Math.PI/2;g.add(t);
+  g.userData={pig:true,gold:!!gold,legs,tx:0,tz:0,wait:Math.random()*2,hop:0,ph:Math.random()*6};
+  g.scale.setScalar((gold?.5:.55+Math.random()*.12)*(!gold&&rDone('g7')?1.45:1));
+  g.position.set((Math.random()*2-1)*(PEN.x-1.5),0,(Math.random()*2-1)*(PEN.z-1.5));
+  g.rotation.y=Math.random()*6.28;pickTarget(g);return g;
+}
+function pickTarget(p){p.userData.tx=(Math.random()*2-1)*(PEN.x-1.5);p.userData.tz=(Math.random()*2-1)*(PEN.z-1.5);}
+const pigs=[];const pigGroup=new THREE.Group();scene.add(pigGroup);
+function syncPigs(){const want=Math.min(36,Math.max(1,lvOf('pen')));while(pigs.length<want){const p=makePig(false);pigs.push(p);pigGroup.add(p);}}
+function setSick(on){bodyMats.forEach(m=>m.emissive.setHex(on?0x3a5a00:0));}
+function reskin(){pigs.forEach(p=>pigGroup.remove(p));pigs.length=0;syncPigs();setSick(S.sickT>0);}
+function gNext(){return (45+Math.random()*60)*(1-.12*sk('lucky'))*rEff('goldFreq');}
+let golden=null,goldenT=0,goldenNext=40+Math.random()*40;
+
+/* farmer */
+const farmer=new THREE.Group();
+farmer.add(box(.9,1.1,.6,0x3e5f8a,0,0,0));
+const fBody=box(1.1,1.3,.7,0xf2c94c,0,1.1,0);farmer.add(fBody);
+farmer.add(mk(new THREE.SphereGeometry(.45,12,10),0xc98d5d,0,2.85,0));
+farmer.add(cyl(1,1,.08,0xe8c66b,0,3.15,0,18));farmer.add(cyl(.4,.48,.45,0xd9b257,0,3.2,0,14));
+farmer.scale.setScalar(1.05);farmer.position.set(-2,0,-3);scene.add(farmer);
+farmer.userData={tx:3,tz:3,wait:0};
+
+/* camera orbit */
+const cam={theta:.75,phi:.95,r:46,tr:46};
+function placeCam(){camera.position.set(Math.sin(cam.theta)*Math.sin(cam.phi)*cam.r,Math.cos(cam.phi)*cam.r,Math.cos(cam.theta)*Math.sin(cam.phi)*cam.r);camera.lookAt(0,1,-2);}
+const ptrs=new Map();let downPos=null,dragged=false,pinch0=0;
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(ptrs.size===1){downPos={x:e.clientX,y:e.clientY};dragged=false;}if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y);dragged=true;}});
+canvas.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;const prev=ptrs.get(e.pointerId);const cur={x:e.clientX,y:e.clientY};ptrs.set(e.pointerId,cur);
+  if(ptrs.size===2){const [a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);if(pinch0){cam.tr=Math.max(16,Math.min(150,cam.tr*pinch0/d));}pinch0=d;return;}
+  if(downPos&&Math.hypot(cur.x-downPos.x,cur.y-downPos.y)>7)dragged=true;
+  if(dragged){cam.theta-=(cur.x-prev.x)*.006;cam.phi=Math.max(.35,Math.min(1.35,cam.phi-(cur.y-prev.y)*.005));}});
+function endPtr(e){if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);if(ptrs.size<2)pinch0=0;if(ptrs.size===0){if(!dragged)tap(e.clientX,e.clientY);downPos=null;}}
+canvas.addEventListener('pointerup',endPtr);canvas.addEventListener('pointercancel',e=>{ptrs.delete(e.pointerId);downPos=null;});
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.tr=Math.max(16,Math.min(150,cam.tr*(1+Math.sign(e.deltaY)*.1)));},{passive:false});
+
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+function tap(x,y){
+  ndc.set(x/innerWidth*2-1,-(y/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
+  const targets=golden?[golden,...pigs]:pigs;
+  const hit=ray.intersectObjects(targets,true)[0];
+  if(!hit)return;
+  let o=hit.object;while(o&&!o.userData.pig)o=o.parent;if(!o)return;
+  o.userData.hop=.35;
+  if(o.userData.gold){
+    const v=(income()*30+100)*rEff('gold');earn(v);if(S.rs.cur)S.rs.left-=3;S.golden++;floatText('+₱'+fmt(v),x,y,true);chime();
+    toast('Golden piglet!','You caught it and sold it to a collector for ₱'+fmt(v)+'.');
+    pigGroup.remove(golden);golden=null;goldenNext=gNext();
+  }else{const v=tapValue();earn(v);S.taps++;if(S.rs.cur)S.rs.left-=.35;floatText('+₱'+fmt(v),x,y,false);oink(.85+Math.random()*.4);}
+}
+function earn(v){S.money+=v;S.lifetime+=v;}
+
+/* ---------- UI ---------- */
+function floatText(t,x,y,gold){const d=document.createElement('div');d.className='float'+(gold?' gold':'');d.textContent=t;d.style.left=x+'px';d.style.top=y+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),1000);}
+function toast(title,text,cls,ms){const t=document.createElement('div');t.className='toast '+(cls||'');t.innerHTML=(title?'<h4></h4>':'')+'<div></div>';if(title)t.querySelector('h4').textContent=title;t.querySelector('div').textContent=text;$('toasts').appendChild(t);const all=$('toasts').children;while(all.length>3)all[0].remove();setTimeout(()=>t.remove(),ms||4200);}
+function modal(icon,title,text,btn,cb){$('card').innerHTML='<div class="big"></div><h2></h2><p></p><button class="buy"><b></b></button>';const c=$('card');c.querySelector('.big').textContent=icon;c.querySelector('h2').textContent=title;c.querySelector('p').textContent=text;c.querySelector('b').textContent=btn;c.querySelector('button').onclick=()=>{$('modal').classList.remove('show');cb&&cb();};$('modal').classList.add('show');c.querySelector('button').focus();}
+
+let tab='farm';
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));$('sheet').classList.remove('collapsed');build();});
+$('buyx').onclick=()=>{buyMode=buyMode===1?10:buyMode===10?'max':1;$('buyx').textContent=buyMode==='max'?'Max':'×'+buyMode;refresh();};
+$('collapse').onclick=()=>{const c=$('sheet').classList.toggle('collapsed');$('collapse').textContent=c?'▴':'▾';$('collapse').setAttribute('aria-label',c?'Show panel':'Hide panel');};
+$('soundBtn').onclick=()=>{S.sound=!S.sound;$('soundBtn').textContent=S.sound?'🔊':'🔇';$('soundBtn').setAttribute('aria-label',S.sound?'Sound on':'Sound off');};
+$('soundBtn').textContent=S.sound?'🔊':'🔇';
+
+const list=$('list');
+function build(){
+  list.innerHTML='';
+  if(tab==='farm'){
+    const h=document.createElement('p');h.className='hint';h.textContent='Tap your pigs to earn cash. Every building earns on its own and doubles its output at levels 25, 50 and 75.';list.appendChild(h);
+    B.forEach(b=>{const r=document.createElement('div');r.className='row';r.id='r-'+b.id;
+      r.innerHTML=`<div class="ic" id="ic-${b.id}"></div><div class="info"><div class="nm"><span id="nm-${b.id}"></span><span class="lv" id="lv-${b.id}"></span></div><div class="ds" id="ds-${b.id}"></div></div><button class="buy" id="bt-${b.id}"></button>`;
+      list.appendChild(r);r.querySelector('button').onclick=()=>buy(b);});
+  }else if(tab==='learn'){
+    const h=document.createElement('div');h.className='hint';h.id='learnHint';list.appendChild(h);
+    SK.forEach(s=>{const r=document.createElement('div');r.className='row';r.id='r-'+s.id;
+      r.innerHTML=`<div class="ic">${s.icon}</div><div class="info"><div class="nm">${s.name}</div><div class="pips" id="pp-${s.id}">${'<i></i>'.repeat(s.max)}</div><div class="ds">${s.desc}</div></div><button class="buy" id="bt-${s.id}"></button>`;
+      list.appendChild(r);r.querySelector('button').onclick=()=>learn(s);});
+    const f=document.createElement('div');f.className='hint';f.id='factBox';f.style.marginTop='12px';list.appendChild(f);
+  }else if(tab==='lab'){
+    const h=document.createElement('div');h.className='hint';h.id='labHint';list.appendChild(h);
+    ['Genetics','Products','Marketing'].forEach(cat=>{const t=document.createElement('div');t.className='cat display';t.textContent=CATN[cat];list.appendChild(t);
+      R.filter(r=>r.cat===cat).forEach(r=>{const row=document.createElement('div');row.className='row';row.id='r-'+r.id;
+        row.innerHTML=`<div class="ic">${r.icon}</div><div class="info"><div class="nm">${r.name}</div><div class="ds" id="ds-${r.id}"></div><div class="prog" id="pg-${r.id}" hidden><i></i></div></div><button class="buy" id="bt-${r.id}"></button>`;
+        list.appendChild(row);row.querySelector('button').onclick=()=>startResearch(r);});});
+  }else if(tab==='home'){
+    const h=document.createElement('div');h.className='hint';h.id='homeHint';list.appendChild(h);
+    [['Your house',HOMES,'home'],['Your garage',CARS,'car']].forEach(([title,arr,kind])=>{const t=document.createElement('div');t.className='cat display';t.textContent=title;list.appendChild(t);
+      arr.forEach((it,i)=>{const row=document.createElement('div');row.className='row';row.id='r-'+it.id;
+        row.innerHTML=`<div class="ic">${it.icon}</div><div class="info"><div class="nm">${it.name}</div><div class="ds" id="ds-${it.id}"></div></div><button class="buy" id="bt-${it.id}"></button>`;
+        list.appendChild(row);row.querySelector('button').onclick=()=>buyLife(kind,i);});});
+  }else{
+    const w=document.createElement('div');w.id='goalWrap';list.appendChild(w);
+    STAGES.forEach((s,i)=>{const r=document.createElement('div');r.className='stage';r.id='st-'+i;r.innerHTML=`<div class="mk">${i+1}</div><div class="nm">${s[1]}</div><div class="amt">₱${fmt(s[0])}</div>`;list.appendChild(r);});
+    const st=document.createElement('div');st.className='stats';st.id='stats';list.appendChild(st);
+    const rs=document.createElement('button');rs.className='danger';rs.textContent='Start a new farm';rs.onclick=()=>modal('🐷','Start a new farm?','This erases your whole farm and progress. You cannot undo it.','Erase and restart',()=>{try{localStorage.removeItem(KEY);}catch(e){}location.reload();});list.appendChild(rs);
+  }
+  refresh();
+}
+function refresh(){
+  const inc=income();
+  $('money').textContent='₱'+fmt(S.money);
+  $('rate').textContent='₱'+fmt(inc)+'/s'+(S.boostT>0?'  ×2 boom':'')+(S.sickT>0?'  sick pigs':'');
+  $('rate').className=S.sickT>0?'sick':'';
+  const L=levelOf(S.lifetime);$('lvl').textContent='Farmer Lv '+L;
+  $('xpbar').style.width=Math.min(100,(S.lifetime-need(L))/(need(L+1)-need(L))*100)+'%';
+  $('stageName').textContent=STAGES[stageIdx()][1];
+  const p=points();$('ptsBadge').innerHTML=p>0?`<span class="badge">${p}</span>`:'';
+  const avail=!S.rs.cur&&R.some(r=>!rDone(r.id)&&reqMet(r)&&S.money>=r.cost);const lb=S.rs.cur?'<span class="badge">🔬</span>':avail?'<span class="badge">!</span>':'';if($('labBadge').innerHTML!==lb)$('labBadge').innerHTML=lb;
+  {const hn=HOMES[(S.home||0)+1],cn=CARS[S.cars||0];const hb=(hn&&L>=hn.req&&S.money>=hn.cost)||(cn&&L>=cn.req&&S.money>=cn.cost)?'<span class="badge">!</span>':'';if($('homeBadge').innerHTML!==hb)$('homeBadge').innerHTML=hb;}
+  if(tab==='farm'){
+    let teaser=false;
+    B.forEach((b,i)=>{const r=$('r-'+b.id),l=lvOf(b.id),bt=$('bt-'+b.id);
+      const open=i===0||lvOf(B[i-1].id)>0;
+      if(!open){if(teaser){r.hidden=true;return;}teaser=true;r.hidden=false;r.classList.add('locked');$('ic-'+b.id).textContent='❔';$('nm-'+b.id).textContent='???';$('lv-'+b.id).textContent='';$('ds-'+b.id).textContent='Build the '+B[i-1].name.toLowerCase()+' to unlock.';bt.disabled=true;bt.innerHTML='<span>Locked</span>';return;}
+      r.hidden=false;r.classList.remove('locked');$('ic-'+b.id).textContent=b.icon;$('nm-'+b.id).textContent=b.name;$('lv-'+b.id).textContent=l?' Lv '+l:'';
+      const q=bulk(b),m=mult();const gain=(bInc(b,l+q.n)-bInc(b,l))*m;
+      $('ds-'+b.id).innerHTML=(l?`Makes ₱${fmt(bInc(b,l)*m)}/s. `:b.desc+' ')+`<b>+₱${fmt(gain)}/s</b>`;
+      bt.innerHTML=`<span>${l?'Upgrade':'Build'}${q.n>1?' ×'+q.n:''}</span><b>₱${fmt(q.cost)}</b>`;bt.disabled=S.money<q.cost;});
+  }else if(tab==='learn'){
+    $('learnHint').textContent=p>0?`You have ${p} skill point${p>1?'s':''} to spend. You get one every time your farmer levels up.`:`Level up to get skill points. Next level at ₱${fmt(need(L+1))} earned in total.`;
+    SK.forEach(s=>{const k=sk(s.id),bt=$('bt-'+s.id);$('pp-'+s.id).querySelectorAll('i').forEach((e,i)=>e.classList.toggle('on',i<k));
+      if(k>=s.max){bt.disabled=true;bt.innerHTML='<span>Mastered</span><b>★</b>';}
+      else if(L<s.req){bt.disabled=true;bt.innerHTML=`<span>Needs</span><b>Lv ${s.req}</b>`;}
+      else{bt.disabled=p<1;bt.innerHTML='<span>Learn</span><b>1 point</b>';}});
+    $('factBox').textContent='Farm lesson: '+FACTS[S.fact%FACTS.length];
+  }else if(tab==='lab'){
+    const cur=S.rs.cur,cr=cur&&R.find(r=>r.id===cur);
+    $('labHint').textContent=cr?`Researching ${cr.name}. Tap pigs to speed it up!`:'Pick a project to research. One runs at a time, and tapping pigs makes it go faster.';
+    const shown={};
+    R.forEach(r=>{const row=$('r-'+r.id),bt=$('bt-'+r.id),ds=$('ds-'+r.id),pg=$('pg-'+r.id);if(!row)return;
+      pg.hidden=true;row.classList.remove('locked');row.hidden=false;
+      if(rDone(r.id)){ds.textContent=r.txt;bt.disabled=true;bt.innerHTML='<span>Done</span><b>✓</b>';return;}
+      if(cur===r.id){ds.textContent=r.txt;pg.hidden=false;pg.firstChild.style.width=Math.max(0,100-S.rs.left/r.time*100)+'%';bt.disabled=true;bt.innerHTML=`<span>Working</span><b>${Math.max(0,Math.ceil(S.rs.left))}s</b>`;return;}
+      if(!reqMet(r)){if(shown[r.cat]){row.hidden=true;return;}shown[r.cat]=true;row.classList.add('locked');ds.textContent=reqText(r);bt.disabled=true;bt.innerHTML='<span>Locked</span><b>🔒</b>';return;}
+      ds.textContent=r.txt+` Takes ${r.time}s.`;bt.disabled=!!cur||S.money<r.cost;bt.innerHTML=`<span>Research</span><b>₱${fmt(r.cost)}</b>`;});
+  }else if(tab==='home'){
+    $('homeHint').textContent=`New homes and rides unlock as your farmer levels up. Your comforts add ${Math.round(lifeBonus()*100)}% to all income. A happy farmer works harder!`;
+    HOMES.forEach((it,i)=>lifeRow(it,i,'home'));CARS.forEach((it,i)=>lifeRow(it,i,'car'));
+  }else{
+    const si=stageIdx();
+    const next=STAGES[Math.min(si+1,STAGES.length-1)][0];const prev=STAGES[si][0];
+    const goal=S.won?1e16:1e9,pct=Math.min(100,Math.log10(Math.max(1,S.lifetime))/Math.log10(goal)*100);
+    $('goalWrap').innerHTML=`<div class="nm">${S.won?'Road to pig of the galaxy':'Road to a billion pesos'}</div><div class="goalbar"><i style="width:${pct}%"></i></div><p class="hint">${S.lifetime>=goal?'You did it. Keep growing toward a global empire.':'Total earned: ₱'+fmt(S.lifetime)+' of ₱'+fmt(goal)+'. Next stage at ₱'+fmt(next)+'.'}</p>`;
+    STAGES.forEach((s,i)=>{const r=$('st-'+i);r.className='stage'+(S.lifetime>=s[0]?' done':'')+(i===si+1?' now':'');r.querySelector('.mk').textContent=S.lifetime>=s[0]?'✓':i+1;});
+    const herd=lvOf('pen')*5+lvOf('barn')*20+lvOf('plant')*40;
+    $('stats').innerHTML=`<div class="stat"><small>Pigs in your herd</small><b>${fmt(herd)}</b></div><div class="stat"><small>Total earned</small><b>₱${fmt(S.lifetime)}</b></div><div class="stat"><small>Pigs patted</small><b>${fmt(S.taps)}</b></div><div class="stat"><small>Golden piglets</small><b>${S.golden}</b></div>`;
+  }
+}
+function buy(b){const l=lvOf(b.id),q=bulk(b);if(S.money<q.cost)return;S.money-=q.cost;S.lv[b.id]=l+q.n;
+  const g=G[b.id];g.visible=true;g.userData.pop=1;
+  if(l===0&&b.id!=='pen'){toast('New: '+b.name,b.desc);chime();}else oink(1.2);
+  if(b.id==='pen')syncPigs();if(b.id==='trucks')syncTrucks();refresh();save();}
+function learn(s){if(points()<1||sk(s.id)>=s.max||levelOf(S.lifetime)<s.req)return;S.sk[s.id]=sk(s.id)+1;chime();toast('Learned: '+s.name,'Rank '+S.sk[s.id]+' of '+s.max+'.');refresh();save();}
+
+function lifeRow(it,i,kind){const bt=$('bt-'+it.id),ds=$('ds-'+it.id),row=$('r-'+it.id);if(!bt)return;
+  const h=S.home||0,c=S.cars||0,owned=kind==='home'?i<=h:i<c,next=kind==='home'?h+1:c,L=levelOf(S.lifetime);
+  row.classList.toggle('locked',!owned&&i!==next);
+  ds.textContent=it.txt+(it.bonus?` +${Math.round(it.bonus*100)}% income.`:'');
+  if(owned){bt.disabled=true;bt.innerHTML=kind==='home'&&i<h?'<span>Moved out</span><b>✓</b>':kind==='home'?'<span>Living here</span><b>🏠</b>':'<span>Owned</span><b>✓</b>';}
+  else if(i!==next||L<it.req){bt.disabled=true;bt.innerHTML=`<span>Needs</span><b>Lv ${it.req}</b>`;}
+  else{bt.disabled=S.money<it.cost;bt.innerHTML=`<span>${kind==='home'?'Move in':'Buy'}</span><b>₱${fmt(it.cost)}</b>`;}}
+function buyLife(kind,i){const arr=kind==='home'?HOMES:CARS,it=arr[i],next=kind==='home'?(S.home||0)+1:(S.cars||0);if(i!==next||levelOf(S.lifetime)<it.req||S.money<it.cost)return;S.money-=it.cost;if(kind==='home')S.home=i;else S.cars=i+1;syncLife();chime();
+  toast(kind==='home'?'Welcome home!':'New ride!',kind==='home'?`You moved into your ${it.name.toLowerCase()}.`:it.id==='c9'?'Your private jet is circling over the farm.':`Your ${it.name.toLowerCase()} is parked by the house.`);refresh();save();}
+const CATN={Genetics:'Develop pigs',Products:'New products to sell',Marketing:'Marketing'};
+function reqMet(r){for(const k in r.req)if(lvOf(k)<r.req[k])return false;return true;}
+function reqText(r){for(const k in r.req)if(lvOf(k)<r.req[k]){const b=B.find(x=>x.id===k);return lvOf(k)?`Needs ${b.name.toLowerCase()} Lv ${r.req[k]}.`:`Needs a ${b.name.toLowerCase()}.`;}return '';}
+function startResearch(r){if(S.rs.cur||rDone(r.id)||!reqMet(r)||S.money<r.cost)return;S.money-=r.cost;S.rs.cur=r.id;S.rs.left=r.time;toast('Research started',r.name+'. Tap pigs to finish it faster.');oink(1.3);refresh();save();}
+function finishResearch(){const r=R.find(x=>x.id===S.rs.cur);if(!r){S.rs.cur=null;return;}S.rs.done[r.id]=true;S.rs.cur=null;S.rs.left=0;chime();toast('Research complete: '+r.name,r.txt,'lesson',6500);if(r.eff.skin||r.eff.big)reskin();refresh();save();}
+/* events */
+let boomNext=100+Math.random()*120,sickNext=160+Math.random()*120,fiestaNext=90+Math.random()*60;
+function renderEvents(){
+  const ev=$('events');let h='';
+  if(S.boostT>0)h+=`<div class="banner boost">📈 Pork prices are up: double income, ${Math.ceil(S.boostT)}s</div>`;
+  if(S.fiestaT>0)h+=`<div class="banner boost">🎉 Fiesta! Taps earn ×5, ${Math.ceil(S.fiestaT)}s</div>`;
+  if(S.sickT>0){const c=income()*2*12;h+=`<div class="banner sick">🤒 Some pigs are sick. Half income, ${Math.ceil(S.sickT)}s <button id="treat" ${S.money<c?'disabled':''}>Call vet ₱${fmt(c)}</button></div>`;}
+  if(ev.innerHTML!==h){ev.innerHTML=h;const t=$('treat');if(t)t.onclick=()=>{const c=income()*2*12;if(S.money>=c){S.money-=c;S.sickT=0;toast('Pigs are healthy','The vet treated your herd.');setSick(false);}};}
+}
+
+/* ---------- Loop ---------- */
+syncPigs();syncTrucks();setSick(S.sickT>0);syncLife();
+B.forEach(b=>{if(lvOf(b.id))G[b.id].visible=true;});
+function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();
+
+let last=performance.now(),uiT=0,saveT=0,clock=0;
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1000);last=now;clock+=dt;
+  // economy
+  earn(income()*dt);
+  if(S.boostT>0)S.boostT=Math.max(0,S.boostT-dt);
+  if(S.sickT>0){S.sickT=Math.max(0,S.sickT-dt);if(S.sickT===0)setSick(false);}
+  boomNext-=dt;if(boomNext<=0){boomNext=150+Math.random()*150;if(lvOf('silo')){S.boostT=30*rEff('boom');toast('Market boom','Pork prices jumped. You earn double for '+Math.round(S.boostT)+' seconds.');chime();}}
+  if(S.fiestaT>0)S.fiestaT=Math.max(0,S.fiestaT-dt);
+  fiestaNext-=dt;if(fiestaNext<=0){fiestaNext=100+Math.random()*80;if(rDone('m3')){S.fiestaT=20;toast('Fiesta in town!','Everyone wants pork. Taps earn ×5 for 20 seconds. Tap tap tap!');chime();}}
+  if(S.rs.cur){S.rs.left-=dt;if(S.rs.left<=0)finishResearch();}
+  {const si=stageIdx();if(si>(S.stage||0)){S.stage=si;if(si>0){toast('New stage: '+STAGES[si][1],'Your business keeps growing. Check the Goals tab.');chime();}}}
+  sickNext-=dt;if(sickNext<=0){sickNext=180+Math.random()*160;if(lvOf('pen')>=8&&S.sickT<=0&&Math.random()<.55*(1-.18*sk('vet'))*rEff('sick')){S.sickT=45;setSick(true);toast('Sick pigs','A bug is going around the herd. Call the vet or wait it out.');}}
+  goldenNext-=dt;if(!golden&&goldenNext<=0){golden=makePig(true);pigGroup.add(golden);goldenT=14;toast('A golden piglet!','Tap it before it runs off.');}
+  if(golden){goldenT-=dt;if(goldenT<=0){pigGroup.remove(golden);golden=null;goldenNext=gNext();}}
+  // level up
+  const L=levelOf(S.lifetime);
+  if(L>S.lastLevel){S.lastLevel=L;S.fact=(S.fact||0)+1;chime();toast('Farmer level '+L+'!','+1 skill point. Farm lesson: '+FACTS[S.fact%FACTS.length],'lesson',7500);}
+  if(!S.won&&S.lifetime>=1e9){S.won=true;save();modal('🏆','You are a pork billionaire!','From one backyard pig to a billion-peso business. Keep going and build a global pork empire.','Keep growing');}
+  // world animation
+  const allPigs=golden?pigs.concat([golden]):pigs;
+  for(const p of allPigs){const u=p.userData,spd=u.gold?4.5:1.1;
+    if(u.wait>0){u.wait-=dt;}else{const dx=u.tx-p.position.x,dz=u.tz-p.position.z,d=Math.hypot(dx,dz);
+      if(d<.3){u.wait=u.gold?0:1+Math.random()*3;pickTarget(p);}else{const yaw=Math.atan2(-dz,dx);let dy=yaw-p.rotation.y;dy=Math.atan2(Math.sin(dy),Math.cos(dy));p.rotation.y+=dy*Math.min(1,dt*6);p.position.x+=dx/d*spd*dt;p.position.z+=dz/d*spd*dt;u.ph+=dt*(u.gold?20:9);}}
+    u.legs.forEach((l,i)=>l.rotation.z=u.wait>0?0:Math.sin(u.ph+(i%2?Math.PI:0))*.5);
+    if(u.hop>0){u.hop-=dt;p.position.y=Math.sin((.35-u.hop)/.35*Math.PI)*.9;}else p.position.y=u.gold?Math.abs(Math.sin(clock*8))*.25:S.fiestaT>0?Math.abs(Math.sin(clock*7+u.ph))*.5:0;}
+  {const u=farmer.userData;if(u.wait>0)u.wait-=dt;else{const dx=u.tx-farmer.position.x,dz=u.tz-farmer.position.z,d=Math.hypot(dx,dz);if(d<.3){u.wait=2+Math.random()*3;u.tx=(Math.random()*2-1)*7;u.tz=(Math.random()*2-1)*5;}else{farmer.rotation.y=Math.atan2(dx,dz);farmer.position.x+=dx/d*1.6*dt;farmer.position.z+=dz/d*1.6*dt;fBody.position.y=1.75+Math.abs(Math.sin(clock*8))*.08;}}}
+  for(const id in G){const g=G[id];if(!g.visible)continue;const base=1+Math.min(lvOf(id),100)*.003;if(g.userData.pop>0){g.userData.pop=Math.max(0,g.userData.pop-dt*3);g.scale.setScalar(base*(1+Math.sin(g.userData.pop*Math.PI)*.12));}else g.scale.setScalar(base);}
+  trucks.forEach(t=>{t.userData.a+=dt*.12;const a=t.userData.a,r=39.2;t.position.set(Math.cos(a)*r,0,Math.sin(a)*r);t.rotation.y=-a-Math.PI/2;});
+  if(G.port.visible){const s=G.port.userData.ship;s.position.y=-.6+Math.sin(clock*1.2)*.12;s.rotation.z=Math.sin(clock*.9)*.02;}
+  G.lab.userData.helix.rotation.y+=dt*.8;
+  if(VG[7].visible){const h=VG[7].userData.h,t=clock%30;h.userData.rotor.rotation.y+=dt*(t<20?6:30);h.position.y=t<20?0:t<24?(t-20)*2:t<28?8:(30-t)*4;}
+  if(VG[8].visible){const a=clock*.2,j=VG[8];j.position.set(12+Math.cos(a)*30,24,16+Math.sin(a)*30);j.rotation.y=-a-Math.PI/2;}
+  plane.visible=lvOf('cargo')>0;if(plane.visible){const a=clock*.15;plane.position.set(30+Math.cos(a)*55,28,Math.sin(a)*55);plane.rotation.y=-a-Math.PI/2;}
+  moon.visible=lvOf('moon')>0;if(moon.visible){const rk=G.moon.userData.rocket,t=clock%26;rk.position.y=t>18?.8+Math.pow(t-18,2)*2.2:.8;rk.visible=t<25.5;}
+  cam.r+=(cam.tr-cam.r)*Math.min(1,dt*8);placeCam();
+  renderer.render(scene,camera);
+  uiT+=dt;if(uiT>.2){uiT=0;refresh();renderEvents();}
+  saveT+=dt;if(saveT>5){saveT=0;save();}
+  requestAnimationFrame(frame);
+}
+
+/* offline earnings */
+const away=(Date.now()-(S.t||Date.now()))/1000;
+const offRate=.1+.18*sk('auto');
+build();
+if(away>60&&S.lifetime>0){
+  const base=income()/(S.boostT>0?2:1);
+  const secs=Math.min(away,8*3600),got=base*secs*offRate;
+  if(got>0){earn(got);modal('🐷','Welcome back!',`Your farm kept working while you were away and earned ₱${fmt(got)}. Learn Farm automation to earn more while you are gone.`,'Collect');}
+}else if(S.lifetime===0){
+  modal('🧑‍🌾','Welcome to Babuyan','You are a young farmer with one pig and a dream. Tap your pig to earn cash, build up your farm, and learn as you level up. Can you grow it into a billion-peso business?','Start farming');
+}
+S.lastLevel=Math.max(S.lastLevel,levelOf(S.lifetime));S.stage=Math.max(S.stage||0,stageIdx());
+addEventListener('visibilitychange',()=>{if(document.hidden)save();else last=performance.now();});
+addEventListener('pagehide',save);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "appId": "com.markdave.babuyan",
+  "appName": "Babuyan",
+  "webDir": "www",
+  "android": { "backgroundColor": "#9fd8f0" }
+}
