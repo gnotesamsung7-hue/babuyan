@@ -42,7 +42,8 @@ canvas#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-a
 #rate{font-size:14px;font-weight:800;color:var(--good);margin-top:2px}
 #rate.sick{color:var(--bad)}
 #lvlChip{text-align:right;max-width:52vw}
-#stageName{font-size:15px;line-height:1.15;color:var(--ink)}
+#farmName{font-size:17px;line-height:1.1;color:var(--ink);max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto}
+#stageName{font-size:12px;line-height:1.2;color:var(--ink-soft);font-weight:800;margin-top:2px}
 .lvlrow{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:5px}
 #lvl{font-weight:800;font-size:13px;white-space:nowrap}
 .bar{width:92px;height:9px;border-radius:9px;background:var(--panel-2);overflow:hidden;border:1px solid var(--line)}
@@ -127,6 +128,15 @@ canvas#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-a
   #toasts{left:calc(50% - 200px);bottom:24px}
   #events{left:calc(50% - 200px)}
 }
+#taskChip{margin-top:8px;font-size:13px;font-weight:800;padding:7px 12px;cursor:pointer;max-width:58vw;line-height:1.3}
+#taskChip .bar{width:100%;margin-top:4px}
+.tk-ready{color:var(--good);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.5}}
+#combo{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 150px);transform:translateX(-50%);z-index:6;font-size:34px;color:#fff;text-shadow:0 3px 0 #d0607a,0 0 8px rgba(0,0,0,.2);pointer-events:none;opacity:0;transition:opacity .25s,transform .1s;white-space:nowrap}
+#combo.on{opacity:1}
+#nameIn{width:100%;font:inherit;font-size:18px;font-weight:800;padding:11px 12px;border-radius:14px;border:2px solid var(--line);background:var(--panel-2);color:var(--ink);margin-bottom:14px;user-select:text;-webkit-user-select:text;text-align:center}
+#nameIn:focus{outline:none;border-color:var(--pink)}
+.link{display:block;margin:10px auto 0;border:0;background:none;color:var(--ink-soft);font:inherit;font-weight:800;cursor:pointer;padding:6px 10px}
 .prog{height:7px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:6px}
 .prog i{display:block;height:100%;width:0;background:var(--good);transition:width .2s}
 .cat{font-size:17px;margin:14px 2px 6px;color:var(--ink)}
@@ -138,13 +148,17 @@ button:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
 <canvas id="world" aria-label="Your pig farm"></canvas>
 
 <div id="hud">
-  <div class="chip" id="moneyChip">
-    <div id="money" class="num">₱0</div>
-    <div id="rate">₱0/s</div>
+  <div>
+    <div class="chip" id="moneyChip">
+      <div id="money" class="num">₱0</div>
+      <div id="rate">₱0/s</div>
+    </div>
+    <div class="chip" id="taskChip" role="button" tabindex="0" aria-label="Current task"></div>
   </div>
   <div>
     <div class="chip" id="lvlChip">
-      <div id="stageName" class="display">Backyard hog raiser</div>
+      <div id="farmName" class="display"></div>
+      <div id="stageName">Backyard hog raiser</div>
       <div class="lvlrow"><span id="lvl">Farmer Lv 1</span><div class="bar"><i id="xpbar"></i></div></div>
     </div>
     <div id="tools">
@@ -155,6 +169,7 @@ button:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
 
 <div id="events"></div>
 <div id="toasts"></div>
+<div id="combo" class="display"></div>
 
 <div id="sheet">
   <div class="tabs" role="tablist">
@@ -279,10 +294,11 @@ const CARS=[
 ];
 
 /* ---------- State ---------- */
-function fresh(){return {money:0,lifetime:0,lv:{pen:1},sk:{},golden:0,taps:0,won:false,lastLevel:1,boostT:0,sickT:0,t:Date.now(),sound:true,fact:0,rs:{done:{},cur:null,left:0},fiestaT:0,stage:0,home:0,cars:0};}
+function fresh(){return {money:0,lifetime:0,lv:{pen:1},sk:{},golden:0,taps:0,won:false,lastLevel:1,boostT:0,sickT:0,t:Date.now(),sound:true,fact:0,rs:{done:{},cur:null,left:0},fiestaT:0,stage:0,home:0,cars:0,farmName:'',tasks:[],tasksDone:0,ups:0,streak:0,lastDay:''};}
 let S=fresh();
 try{const r=localStorage.getItem(KEY); if(r){const d=JSON.parse(r); S=Object.assign(fresh(),d); S.lv=Object.assign({pen:1},d.lv||{}); S.sk=d.sk||{};S.rs=Object.assign({done:{},cur:null,left:0},d.rs||{});S.rs.done=S.rs.done||{};}}catch(e){}
-function save(){S.t=Date.now(); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+let resetting=false;
+function save(){if(resetting)return;S.t=Date.now(); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
 const lvOf=id=>S.lv[id]||0, sk=id=>S.sk[id]||0;
 function need(L){return L<=1?0:20*Math.pow(2.1,L-1);}
@@ -364,7 +380,13 @@ for(let x=-PEN.x;x<=PEN.x;x+=2){fence.add(box(.3,1.4,.3,0xc89a6a,x,0,-PEN.z));fe
 for(let z=-PEN.z+2;z<PEN.z;z+=2){fence.add(box(.3,1.4,.3,0xc89a6a,-PEN.x,0,z));fence.add(box(.3,1.4,.3,0xc89a6a,PEN.x,0,z));}
 [.5,1.05].forEach(y=>{fence.add(box(PEN.x*2,.18,.14,0xb3825a,0,y,-PEN.z));fence.add(box(PEN.x*2,.18,.14,0xb3825a,0,y,PEN.z));fence.add(box(.14,.18,PEN.z*2,0xb3825a,-PEN.x,y,0));fence.add(box(.14,.18,PEN.z*2,0xb3825a,PEN.x,y,0));});
 scene.add(fence);
-scene.add(box(4,.6,1,0x8a5a3b,5,0,-4.5));scene.add(box(3.6,.15,.7,0xf2c94c,5,.5,-4.5));
+scene.add(box(4,.6,1,0x8a5a3b,5,0,-4.5));
+const signCv=document.createElement('canvas');signCv.width=512;signCv.height=128;const signTex=new THREE.CanvasTexture(signCv);
+const sign=new THREE.Group();sign.add(box(.25,2.6,.25,0x7a5530,-2.6,0,0));sign.add(box(.25,2.6,.25,0x7a5530,2.6,0,0));sign.add(box(6,1.6,.2,0x9b7445,0,1.5,0));
+{const sp=new THREE.Mesh(new THREE.PlaneGeometry(5.7,1.42),new THREE.MeshLambertMaterial({map:signTex}));sp.position.set(0,2.3,.11);sign.add(sp);}
+sign.position.set(-3,0,9.6);sign.rotation.y=.55;scene.add(sign);
+function updateSign(){const c=signCv.getContext('2d');c.fillStyle='#c89a6a';c.fillRect(0,0,512,128);c.strokeStyle='#7a5530';c.lineWidth=10;c.strokeRect(5,5,502,118);const n=S.farmName||'My Babuyan';let fs=66;c.fillStyle='#3d2616';c.textAlign='center';c.textBaseline='middle';do{c.font=fs+'px "Lilita One", "Arial Rounded MT Bold", sans-serif';fs-=4;}while(c.measureText(n).width>470&&fs>18);c.fillText(n,256,68);signTex.needsUpdate=true;}
+updateSign();if(document.fonts&&document.fonts.ready)document.fonts.ready.then(updateSign);scene.add(box(3.6,.15,.7,0xf2c94c,5,.5,-4.5));
 // bahay kubo
 const kubo=new THREE.Group();
 kubo.add(box(5,.4,4,0x9b7445,0,1.2,0));[[-2.2,-1.7],[2.2,-1.7],[-2.2,1.7],[2.2,1.7]].forEach(p=>kubo.add(box(.3,1.4,.3,0x7a5530,p[0],0,p[1])));
@@ -502,6 +524,7 @@ canvas.addEventListener('pointerup',endPtr);canvas.addEventListener('pointercanc
 canvas.addEventListener('wheel',e=>{e.preventDefault();cam.tr=Math.max(16,Math.min(150,cam.tr*(1+Math.sign(e.deltaY)*.1)));},{passive:false});
 
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+let combo=0,lastTap=0,comboTO=0;
 function tap(x,y){
   ndc.set(x/innerWidth*2-1,-(y/innerHeight)*2+1);ray.setFromCamera(ndc,camera);
   const targets=golden?[golden,...pigs]:pigs;
@@ -513,14 +536,47 @@ function tap(x,y){
     const v=(income()*30+100)*rEff('gold');earn(v);if(S.rs.cur)S.rs.left-=3;S.golden++;floatText('+₱'+fmt(v),x,y,true);chime();
     toast('Golden piglet!','You caught it and sold it to a collector for ₱'+fmt(v)+'.');
     pigGroup.remove(golden);golden=null;goldenNext=gNext();
-  }else{const v=tapValue();earn(v);S.taps++;if(S.rs.cur)S.rs.left-=.35;floatText('+₱'+fmt(v),x,y,false);oink(.85+Math.random()*.4);}
+  }else{
+    const now=performance.now();combo=now-lastTap<700?combo+1:1;lastTap=now;const cm=1+Math.min(combo,50)*.04;
+    const v=tapValue()*cm;earn(v);S.taps++;if(S.rs.cur)S.rs.left-=.35;floatText('+₱'+fmt(v),x,y,false);oink(.85+Math.random()*.4+Math.min(combo,30)*.01);
+    if(combo>=5){const c=$('combo');c.textContent='Combo ×'+combo+'  ('+cm.toFixed(1)+'x)';c.classList.add('on');c.style.transform='translateX(-50%) scale(1.15)';setTimeout(()=>c.style.transform='translateX(-50%) scale(1)',90);clearTimeout(comboTO);comboTO=setTimeout(()=>c.classList.remove('on'),800);}
+  }
 }
 function earn(v){S.money+=v;S.lifetime+=v;}
 
 /* ---------- UI ---------- */
 function floatText(t,x,y,gold){const d=document.createElement('div');d.className='float'+(gold?' gold':'');d.textContent=t;d.style.left=x+'px';d.style.top=y+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),1000);}
 function toast(title,text,cls,ms){const t=document.createElement('div');t.className='toast '+(cls||'');t.innerHTML=(title?'<h4></h4>':'')+'<div></div>';if(title)t.querySelector('h4').textContent=title;t.querySelector('div').textContent=text;$('toasts').appendChild(t);const all=$('toasts').children;while(all.length>3)all[0].remove();setTimeout(()=>t.remove(),ms||4200);}
-function modal(icon,title,text,btn,cb){$('card').innerHTML='<div class="big"></div><h2></h2><p></p><button class="buy"><b></b></button>';const c=$('card');c.querySelector('.big').textContent=icon;c.querySelector('h2').textContent=title;c.querySelector('p').textContent=text;c.querySelector('b').textContent=btn;c.querySelector('button').onclick=()=>{$('modal').classList.remove('show');cb&&cb();};$('modal').classList.add('show');c.querySelector('button').focus();}
+const MQ=[];let mOpen=false;
+function nextModal(){const f=MQ.shift();if(f){mOpen=true;f();}else{mOpen=false;$('modal').classList.remove('show');}}
+function modal(icon,title,text,btn,cb,cancel){MQ.push(()=>{$('card').innerHTML='<div class="big"></div><h2></h2><p></p><button class="buy"><b></b></button>'+(cancel?'<button class="link"></button>':'');const c=$('card');c.querySelector('.big').textContent=icon;c.querySelector('h2').textContent=title;c.querySelector('p').textContent=text;c.querySelector('b').textContent=btn;c.querySelector('.buy').onclick=()=>{cb&&cb();nextModal();};if(cancel){const l=c.querySelector('.link');l.textContent=cancel;l.onclick=()=>nextModal();}$('modal').classList.add('show');c.querySelector('.buy').focus();});if(!mOpen)nextModal();}
+function nameModal(first){MQ.push(()=>{const c=$('card');c.innerHTML='<div class="big">🪧</div><h2></h2><p></p><input id="nameIn" maxlength="24" autocomplete="off" aria-label="Farm name"><button class="buy" id="nameOk"><b>Save name</b></button>'+(first?'':'<button class="link" id="nameCancel">Cancel</button>');
+  c.querySelector('h2').textContent=first?'Name your farm':'Rename your farm';c.querySelector('p').textContent=first?'Every great business starts with a name. What will you call yours? It goes on the sign by your pen.':'Pick a new name for your farm.';
+  const inp=$('nameIn');inp.value=S.farmName||'';inp.placeholder='e.g. Sunny Hill Farm';
+  const ok=()=>{const v=inp.value.trim().slice(0,24);if(!v){inp.focus();return;}S.farmName=v;updateSign();refresh();save();toast('Welcome to '+v+'!','Your new sign is up by the pen.');nextModal();};
+  $('nameOk').onclick=ok;inp.onkeydown=e=>{if(e.key==='Enter')ok();};if(!first)$('nameCancel').onclick=()=>nextModal();
+  $('modal').classList.add('show');setTimeout(()=>inp.focus(),60);});if(!mOpen)nextModal();}
+/* tasks */
+function rCount(){return Object.keys(S.rs.done).length;}
+function newTask(){const n=S.tasksDone||0;let types=['tap','ups','earn','build'];if(lvOf('pen')>=3)types.push('gold');if(R.some(r=>!rDone(r.id)&&reqMet(r)))types.push('research');
+  const cur=(S.tasks||[]).map(t=>t.type);let pool=types.filter(t=>!cur.includes(t));if(!pool.length)pool=types;const type=pool[Math.floor(Math.random()*pool.length)],t={type};
+  if(type==='tap'){t.target=20+Math.min(80,n*4);t.base=S.taps;}
+  else if(type==='ups'){t.target=5+Math.min(20,n);t.base=S.ups||0;}
+  else if(type==='earn'){t.target=Math.max(200,income()*150);t.base=S.lifetime;}
+  else if(type==='gold'){t.target=1;t.base=S.golden;}
+  else if(type==='research'){t.target=1;t.base=rCount();}
+  else{const owned=B.filter(b=>lvOf(b.id)>0);const b=owned[Math.floor(Math.random()*owned.length)];t.bid=b.id;t.target=lvOf(b.id)+5+Math.floor(Math.random()*5);}
+  return t;}
+function taskProg(t){switch(t.type){case 'tap':return S.taps-t.base;case 'ups':return (S.ups||0)-t.base;case 'earn':return S.lifetime-t.base;case 'gold':return S.golden-t.base;case 'research':return rCount()-t.base;default:return lvOf(t.bid);}}
+function taskText(t){switch(t.type){case 'tap':return 'Pat '+t.target+' pigs';case 'ups':return 'Upgrade buildings '+t.target+' times';case 'earn':return 'Earn ₱'+fmt(t.target);case 'gold':return 'Catch a golden piglet';case 'research':return 'Finish a research project';default:return 'Get your '+B.find(b=>b.id===t.bid).name.toLowerCase()+' to Lv '+t.target;}}
+function taskIcon(t){return {tap:'✋',ups:'🔨',earn:'💰',gold:'✨',research:'🔬',build:'🏗️'}[t.type];}
+function taskDone(t){return taskProg(t)>=t.target;}
+function ensureTasks(){S.tasks=S.tasks||[];while(S.tasks.length<3)S.tasks.push(newTask());}
+function taskReward(){return Math.max(50,income()*45)*(1+Math.min(10,S.tasksDone||0)*.1);}
+function claimTask(i){const t=S.tasks[i];if(!t||!taskDone(t))return;const v=taskReward();earn(v);S.tasksDone=(S.tasksDone||0)+1;S.tasks.splice(i,1);S.tasks.push(newTask());chime();floatText('+₱'+fmt(v),innerWidth/2,innerHeight*.4,true);toast('Task complete!','You earned ₱'+fmt(v)+'. A new task is waiting.');refresh();save();}
+function dayKey(d){return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function checkDaily(){const t=dayKey(new Date());if(S.lastDay===t)return;const y=new Date();y.setDate(y.getDate()-1);S.streak=S.lastDay===dayKey(y)?(S.streak||0)+1:1;S.lastDay=t;const day=((S.streak-1)%7)+1;const v=Math.max(100,income()*60)*day;earn(v);save();
+  modal('🌅','Day '+S.streak+' harvest!','Good to see you at '+(S.farmName||'your farm')+'. Here is ₱'+fmt(v)+(day===7?'. That is a full week streak!':'. Come back tomorrow for a bigger harvest.'),'Collect');}
 
 let tab='farm';
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));$('sheet').classList.remove('collapsed');build();});
@@ -529,6 +585,8 @@ $('collapse').onclick=()=>{const c=$('sheet').classList.toggle('collapsed');$('c
 $('soundBtn').onclick=()=>{S.sound=!S.sound;$('soundBtn').textContent=S.sound?'🔊':'🔇';$('soundBtn').setAttribute('aria-label',S.sound?'Sound on':'Sound off');};
 $('soundBtn').textContent=S.sound?'🔊':'🔇';
 
+$('taskChip').onclick=()=>document.querySelector('.tab[data-tab="goals"]').click();
+$('taskChip').onkeydown=e=>{if(e.key==='Enter'||e.key===' ')$('taskChip').click();};
 const list=$('list');
 function build(){
   list.innerHTML='';
@@ -556,21 +614,28 @@ function build(){
         row.innerHTML=`<div class="ic">${it.icon}</div><div class="info"><div class="nm">${it.name}</div><div class="ds" id="ds-${it.id}"></div></div><button class="buy" id="bt-${it.id}"></button>`;
         list.appendChild(row);row.querySelector('button').onclick=()=>buyLife(kind,i);});});
   }else{
+    const tt=document.createElement('div');tt.className='cat display';tt.textContent='Today’s tasks';tt.style.marginTop='4px';list.appendChild(tt);
+    for(let i=0;i<3;i++){const r=document.createElement('div');r.className='row';r.innerHTML=`<div class="ic" id="tki-${i}"></div><div class="info"><div class="nm" id="tkn-${i}"></div><div class="prog"><i id="tkp-${i}"></i></div><div class="ds" id="tkd-${i}"></div></div><button class="buy" id="tkb-${i}"></button>`;list.appendChild(r);r.querySelector('button').onclick=()=>claimTask(i);}
+    const gt=document.createElement('div');gt.className='cat display';gt.textContent='Your business';list.appendChild(gt);
     const w=document.createElement('div');w.id='goalWrap';list.appendChild(w);
     STAGES.forEach((s,i)=>{const r=document.createElement('div');r.className='stage';r.id='st-'+i;r.innerHTML=`<div class="mk">${i+1}</div><div class="nm">${s[1]}</div><div class="amt">₱${fmt(s[0])}</div>`;list.appendChild(r);});
     const st=document.createElement('div');st.className='stats';st.id='stats';list.appendChild(st);
-    const rs=document.createElement('button');rs.className='danger';rs.textContent='Start a new farm';rs.onclick=()=>modal('🐷','Start a new farm?','This erases your whole farm and progress. You cannot undo it.','Erase and restart',()=>{try{localStorage.removeItem(KEY);}catch(e){}location.reload();});list.appendChild(rs);
+    const rs=document.createElement('button');rs.className='danger';rs.textContent='Start a new farm';rs.onclick=()=>modal('🐷','Start a new farm?','This erases your whole farm and progress. You cannot undo it.','Erase and restart',()=>{resetting=true;try{localStorage.removeItem(KEY);}catch(e){}location.reload();},'Cancel');
+    const rn=document.createElement('button');rn.className='buy';rn.style.margin='14px 0 0';rn.innerHTML='<b>🪧 Rename farm</b>';rn.onclick=()=>nameModal(false);list.appendChild(rn);list.appendChild(rs);
   }
   refresh();
 }
 function refresh(){
+  ensureTasks();
+  {let ready=-1;S.tasks.forEach((t,i)=>{if(taskDone(t)){if(ready<0)ready=i;if(!t.notified){t.notified=1;toast('Task ready! '+taskIcon(t),taskText(t)+'. Claim your reward in Goals.');chime();}}});
+   const t0=ready>=0?S.tasks[ready]:S.tasks[0];$('taskChip').innerHTML=ready>=0?'<span class="tk-ready">🎁 Reward ready! Tap to claim</span>':taskIcon(t0)+' '+taskText(t0)+'<div class="bar"><i style="width:'+Math.min(100,Math.max(0,taskProg(t0))/t0.target*100)+'%"></i></div>';}
   const inc=income();
   $('money').textContent='₱'+fmt(S.money);
   $('rate').textContent='₱'+fmt(inc)+'/s'+(S.boostT>0?'  ×2 boom':'')+(S.sickT>0?'  sick pigs':'');
   $('rate').className=S.sickT>0?'sick':'';
   const L=levelOf(S.lifetime);$('lvl').textContent='Farmer Lv '+L;
   $('xpbar').style.width=Math.min(100,(S.lifetime-need(L))/(need(L+1)-need(L))*100)+'%';
-  $('stageName').textContent=STAGES[stageIdx()][1];
+  $('stageName').textContent=STAGES[stageIdx()][1];$('farmName').textContent=S.farmName||'My Babuyan';
   const p=points();$('ptsBadge').innerHTML=p>0?`<span class="badge">${p}</span>`:'';
   const avail=!S.rs.cur&&R.some(r=>!rDone(r.id)&&reqMet(r)&&S.money>=r.cost);const lb=S.rs.cur?'<span class="badge">🔬</span>':avail?'<span class="badge">!</span>':'';if($('labBadge').innerHTML!==lb)$('labBadge').innerHTML=lb;
   {const hn=HOMES[(S.home||0)+1],cn=CARS[S.cars||0];const hb=(hn&&L>=hn.req&&S.money>=hn.cost)||(cn&&L>=cn.req&&S.money>=cn.cost)?'<span class="badge">!</span>':'';if($('homeBadge').innerHTML!==hb)$('homeBadge').innerHTML=hb;}
@@ -609,11 +674,13 @@ function refresh(){
     const goal=S.won?1e16:1e9,pct=Math.min(100,Math.log10(Math.max(1,S.lifetime))/Math.log10(goal)*100);
     $('goalWrap').innerHTML=`<div class="nm">${S.won?'Road to pig of the galaxy':'Road to a billion pesos'}</div><div class="goalbar"><i style="width:${pct}%"></i></div><p class="hint">${S.lifetime>=goal?'You did it. Keep growing toward a global empire.':'Total earned: ₱'+fmt(S.lifetime)+' of ₱'+fmt(goal)+'. Next stage at ₱'+fmt(next)+'.'}</p>`;
     STAGES.forEach((s,i)=>{const r=$('st-'+i);r.className='stage'+(S.lifetime>=s[0]?' done':'')+(i===si+1?' now':'');r.querySelector('.mk').textContent=S.lifetime>=s[0]?'✓':i+1;});
+    const rw=taskReward();S.tasks.forEach((t,i)=>{if(!$('tkn-'+i))return;const p=Math.min(t.target,Math.max(0,taskProg(t))),d=p>=t.target;$('tki-'+i).textContent=taskIcon(t);$('tkn-'+i).textContent=taskText(t);$('tkp-'+i).style.width=(p/t.target*100)+'%';
+      $('tkd-'+i).textContent=t.type==='earn'?'₱'+fmt(p)+' of ₱'+fmt(t.target):t.type==='build'?'Now at Lv '+lvOf(t.bid):fmt(p)+' of '+fmt(t.target);const b=$('tkb-'+i);b.disabled=!d;b.innerHTML=d?'<span>Claim</span><b>🎁</b>':'<span>Reward</span><b>₱'+fmt(rw)+'</b>';});
     const herd=lvOf('pen')*5+lvOf('barn')*20+lvOf('plant')*40;
-    $('stats').innerHTML=`<div class="stat"><small>Pigs in your herd</small><b>${fmt(herd)}</b></div><div class="stat"><small>Total earned</small><b>₱${fmt(S.lifetime)}</b></div><div class="stat"><small>Pigs patted</small><b>${fmt(S.taps)}</b></div><div class="stat"><small>Golden piglets</small><b>${S.golden}</b></div>`;
+    $('stats').innerHTML=`<div class="stat"><small>Pigs in your herd</small><b>${fmt(herd)}</b></div><div class="stat"><small>Total earned</small><b>₱${fmt(S.lifetime)}</b></div><div class="stat"><small>Pigs patted</small><b>${fmt(S.taps)}</b></div><div class="stat"><small>Golden piglets</small><b>${S.golden}</b></div><div class="stat"><small>Tasks done</small><b>${fmt(S.tasksDone||0)}</b></div><div class="stat"><small>Daily streak</small><b>${S.streak||0} day${S.streak===1?'':'s'}</b></div>`;
   }
 }
-function buy(b){const l=lvOf(b.id),q=bulk(b);if(S.money<q.cost)return;S.money-=q.cost;S.lv[b.id]=l+q.n;
+function buy(b){const l=lvOf(b.id),q=bulk(b);if(S.money<q.cost)return;S.money-=q.cost;S.lv[b.id]=l+q.n;S.ups=(S.ups||0)+q.n;
   const g=G[b.id];g.visible=true;g.userData.pop=1;
   if(l===0&&b.id!=='pen'){toast('New: '+b.name,b.desc);chime();}else oink(1.2);
   if(b.id==='pen')syncPigs();if(b.id==='trucks')syncTrucks();refresh();save();}
@@ -660,7 +727,7 @@ function frame(now){
   if(S.fiestaT>0)S.fiestaT=Math.max(0,S.fiestaT-dt);
   fiestaNext-=dt;if(fiestaNext<=0){fiestaNext=100+Math.random()*80;if(rDone('m3')){S.fiestaT=20;toast('Fiesta in town!','Everyone wants pork. Taps earn ×5 for 20 seconds. Tap tap tap!');chime();}}
   if(S.rs.cur){S.rs.left-=dt;if(S.rs.left<=0)finishResearch();}
-  {const si=stageIdx();if(si>(S.stage||0)){S.stage=si;if(si>0){toast('New stage: '+STAGES[si][1],'Your business keeps growing. Check the Goals tab.');chime();}}}
+  {const si=stageIdx();if(si>(S.stage||0)){S.stage=si;if(si>0){toast((S.farmName||'Your farm')+' grew!','It is now a '+STAGES[si][1].toLowerCase()+'. Check the Goals tab.');chime();}}}
   sickNext-=dt;if(sickNext<=0){sickNext=180+Math.random()*160;if(lvOf('pen')>=8&&S.sickT<=0&&Math.random()<.55*(1-.18*sk('vet'))*rEff('sick')){S.sickT=45;setSick(true);toast('Sick pigs','A bug is going around the herd. Call the vet or wait it out.');}}
   goldenNext-=dt;if(!golden&&goldenNext<=0){golden=makePig(true);pigGroup.add(golden);goldenT=14;toast('A golden piglet!','Tap it before it runs off.');}
   if(golden){goldenT-=dt;if(goldenT<=0){pigGroup.remove(golden);golden=null;goldenNext=gNext();}}
@@ -702,8 +769,10 @@ if(away>60&&S.lifetime>0){
 }else if(S.lifetime===0){
   modal('🧑‍🌾','Welcome to Babuyan','You are a young farmer with one pig and a dream. Tap your pig to earn cash, build up your farm, and learn as you level up. Can you grow it into a billion-peso business?','Start farming');
 }
+if(!S.farmName)nameModal(true);
+checkDaily();
 S.lastLevel=Math.max(S.lastLevel,levelOf(S.lifetime));S.stage=Math.max(S.stage||0,stageIdx());
-addEventListener('visibilitychange',()=>{if(document.hidden)save();else last=performance.now();});
+addEventListener('visibilitychange',()=>{if(document.hidden)save();else{last=performance.now();checkDaily();}});
 addEventListener('pagehide',save);
 requestAnimationFrame(frame);
 })();
